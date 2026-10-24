@@ -1,0 +1,255 @@
+#!/usr/bin/python3 -I
+
+# Pair the Surface Slim Pen when it is docked in the Flex Keyboard, the way
+# Windows does it ("AutoBond").
+#
+# The keyboard's pen dock is a HID device (045E:0C8E). Once the host tells it
+# that it can auto-bond (feature 0x70 = 01) and gives it the host's Bluetooth
+# address (feature 0x56), a docked pen reports its ID, address and flags
+# (input 0x6E). If the pen is not paired, the host sends it a random temporary
+# key through the dock (output 0x6F) and pairs with LE legacy out-of-band
+# pairing using that key, while the pen is still docked. Like Windows:
+#   - paired, and the pen knows this host: nothing to do;
+#   - paired, but the pen does not know this host (another system paired it
+#     since): the bond is stale, so remove it and pair again;
+#   - not paired: pair.
+# A pairing that fails is retried the next time the pen is docked.
+#
+# The dock also reports the pen going in and out (input 0x5C, and 0x6E on
+# every insert). Whether the pen is docked is kept in a world-readable file
+# ("1" or "0"), so the desktop can tell a docked pen waking from one in hand.
+#
+# Needs a kernel with LE legacy out-of-band pairing; reconnecting on a button
+# click after the pen drops its link also needs the kernel to send the host's
+# identity while bonding. The temporary key is never printed or stored.
+
+import errno
+import fcntl
+import os
+import re
+import select
+import socket
+import struct
+import subprocess
+import sys
+import time
+
+COMPATIBLE = os.environ.get('SP11_PEN_COMPATIBLE', '/proc/device-tree/compatible')
+HID = os.environ.get('SP11_PEN_HID', '/sys/bus/hid/devices')
+DEV = os.environ.get('SP11_PEN_DEV', '/dev')
+# Shared with surface-pro-11-flex-autopair, so the two never pair at once.
+LOCK = os.path.join(os.environ.get('SP11_PEN_RUN_DIR', '/run/surface-pro-11-support'), 'flex-autopair.lock')
+DOCKED = os.path.join(os.environ.get('SP11_PEN_RUN_DIR', '/run/surface-pro-11-support'), 'pen-docked')
+DOCK = '0019:045E:0C8E.'
+
+AUTOBOND_CAPABLE, HOST_ADDRESS, PEN_IN_RANGE, TEMPORARY_KEY = 0x70, 0x56, 0x6E, 0x6F
+PEN_SLOT = 0x5C
+PEN_INSERTED, PEN_REMOVED = b'\x09\x04', b'\x09\x02'
+RANDOM, AUTOBOND, KNOWN_HOST = 0x01, 0x02, 0x04
+
+HCI_CHANNEL_CONTROL, HCI_DEV_NONE = 3, 0xFFFF
+MGMT_OP_ADD_REMOTE_OOB_DATA = 0x0021
+MGMT_EV_CMD_COMPLETE, MGMT_EV_CMD_STATUS = 0x0001, 0x0002
+
+
+def log(msg):
+    print(f'surface-pro-11-pen-dock: {msg}', flush=True)
+
+
+def run(*cmd, timeout=10):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return ''
+
+
+def on_surface_pro_11():
+    try:
+        return 'microsoft,denali-oled' in open(COMPATIBLE, 'rb').read().decode(errors='replace').split('\0')
+    except OSError:
+        return False
+
+
+def dock_node():
+    """The pen dock's hidraw node; it appears shortly after the HID device."""
+    for _ in range(20):
+        for dev in sorted(os.listdir(HID)):
+            if dev.startswith(DOCK):
+                try:
+                    return os.path.join(DEV, os.listdir(os.path.join(HID, dev, 'hidraw'))[0])
+                except (OSError, IndexError):
+                    pass
+        time.sleep(0.5)
+    return None
+
+
+def host_address():
+    """The controller's public address, once bluetoothd has it powered."""
+    for _ in range(30):
+        info = run('btmgmt', 'info')
+        m = re.search(r'addr ([0-9A-F:]{17})', info)
+        if m and re.search(r'current settings:[^\n]*\bpowered\b', info):
+            return m.group(1)
+        time.sleep(2)
+    return None
+
+
+def set_docked(docked):
+    """Record whether the pen is docked. Written in place, and only when it
+    changes, so a watcher never reads a missing file."""
+    value = '1\n' if docked else '0\n'
+    try:
+        if open(DOCKED).read() == value:
+            return
+    except OSError:
+        pass
+    try:
+        os.makedirs(os.path.dirname(DOCKED), exist_ok=True)
+        with open(DOCKED, 'w') as f:
+            f.write(value)
+        os.chmod(DOCKED, 0o644)
+    except OSError as e:
+        log(f'{DOCKED}: {e}')
+
+
+def set_feature(fd, rid, payload):
+    buf = bytearray(bytes([rid]) + payload)
+    fcntl.ioctl(fd, (3 << 30) | (len(buf) << 16) | (ord('H') << 8) | 0x06, buf, True)
+
+
+def add_remote_oob_tk(addr, addr_type, tk):
+    s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
+    try:
+        s.bind((HCI_DEV_NONE, HCI_CHANNEL_CONTROL))
+        s.settimeout(5)
+        params = bytes.fromhex(addr.replace(':', ''))[::-1] + bytes([addr_type]) \
+            + bytes(16) + tk + bytes(16) + bytes(16)
+        s.send(struct.pack('<HHH', MGMT_OP_ADD_REMOTE_OOB_DATA, 0, len(params)) + params)
+        end = time.time() + 5
+        while time.time() < end:
+            pkt = s.recv(1024)
+            if len(pkt) < 9:
+                continue
+            ev, _, plen = struct.unpack_from('<HHH', pkt, 0)
+            if ev in (MGMT_EV_CMD_COMPLETE, MGMT_EV_CMD_STATUS):
+                op, status = struct.unpack_from('<HB', pkt, 6)
+                if op == MGMT_OP_ADD_REMOTE_OOB_DATA:
+                    return status == 0
+        return False
+    except OSError:
+        return False
+    finally:
+        s.close()
+
+
+def pen_address(report, host_le):
+    """The address the pen pairs from: with auto-bonding, its reported address
+    XOR the host's, as a static random address (top two bits set)."""
+    addr = report[5:11]
+    if report[11] & AUTOBOND:
+        addr = bytearray(a ^ h for a, h in zip(addr, host_le))
+        addr[5] |= 0xC0
+    return bytes(addr)[::-1].hex(':').upper()
+
+
+def bond(fd, report, target):
+    tk = os.urandom(16)
+    os.write(fd, bytes([TEMPORARY_KEY]) + report[1:11] + bytes([report[11] & RANDOM]) + tk)
+    addr_type = 2 if report[11] & RANDOM else 1
+    if not add_remote_oob_tk(target, addr_type, tk):
+        return False
+    os.makedirs(os.path.dirname(LOCK), exist_ok=True)
+    with open(LOCK, 'w') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        # Omarchy leaves the adapter non-pairable; pairing then stores no keys.
+        pairable = 'Pairable: yes' in run('bluetoothctl', 'show')
+        if not pairable:
+            run('bluetoothctl', 'pairable', 'on')
+        try:
+            run('btmgmt', 'cancelpair', '-t', str(addr_type), target)
+            run('btmgmt', 'pair', '-c', '3', '-t', str(addr_type), target, timeout=45)
+        finally:
+            if not pairable:
+                run('bluetoothctl', 'pairable', 'off')
+    if 'Bonded: yes' not in run('bluetoothctl', 'info', target):
+        return False
+    run('bluetoothctl', 'trust', target)
+    return True
+
+
+def pen_docked(fd, report, host_le):
+    target = pen_address(report, host_le)
+    known_host = bool(report[11] & KNOWN_HOST)
+    paired = 'Paired: yes' in run('bluetoothctl', 'info', target)
+    if paired and known_host:
+        return
+    if paired:
+        log(f'pen {target} no longer knows this host, pairing it again')
+        run('bluetoothctl', 'remove', target)
+    if bond(fd, report, target):
+        log(f'paired the pen {target}')
+    else:
+        log(f'pairing the pen {target} failed; dock it again to retry')
+
+
+def dock_report(fd, report, host_le):
+    if report[0] == PEN_SLOT and report[1:3] in (PEN_INSERTED, PEN_REMOVED):
+        set_docked(report[1:3] == PEN_INSERTED)
+    elif report[0] == PEN_IN_RANGE and len(report) >= 12:
+        set_docked(True)
+        pen_docked(fd, report, host_le)
+
+
+def watch(node, host_le):
+    try:
+        fd = os.open(node, os.O_RDWR | os.O_NONBLOCK)
+        set_feature(fd, AUTOBOND_CAPABLE, b'\x01')
+        set_feature(fd, HOST_ADDRESS, host_le + b'\x00')
+    except OSError as e:
+        log(f'{node}: {e}')
+        return
+    # A docked pen reports itself (0x6E) as soon as the dock is set up; with
+    # no report by then, the dock is empty. The state is not cleared first,
+    # so a restart with the pen docked does not look like it was taken out.
+    empty_by = time.monotonic() + 2
+    while True:
+        wait = None if empty_by is None else max(0, empty_by - time.monotonic())
+        if not select.select([fd], [], [], wait)[0]:
+            set_docked(False)
+            empty_by = None
+            continue
+        try:
+            report = os.read(fd, 64)
+        except BlockingIOError:
+            continue
+        except OSError as e:
+            if e.errno not in (errno.ENODEV, errno.EIO):
+                log(f'{node}: {e}')
+            return
+        if not report:
+            return
+        if report[0] in (PEN_SLOT, PEN_IN_RANGE):
+            empty_by = None
+        dock_report(fd, report, host_le)
+
+
+def main():
+    if not on_surface_pro_11():
+        return
+    node = dock_node()
+    if not node:
+        return
+    host = host_address()
+    if not host:
+        log('no powered Bluetooth controller, not pairing the pen')
+        return
+    host_le = bytes.fromhex(host.replace(':', ''))[::-1]
+    try:
+        watch(node, host_le)
+    finally:
+        # The dock is part of the keyboard; without it no pen is docked.
+        set_docked(False)
+
+
+if __name__ == '__main__':
+    main()

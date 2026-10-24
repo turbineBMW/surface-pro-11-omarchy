@@ -1,0 +1,7 @@
+/out/
+/.cache/
+pkgbuilds/*/src/
+pkgbuilds/*/pkg/
+pkgbuilds/*/*.pkg.tar.*
+pkgbuilds/*/*.log
+pkgbuilds/linux-omarchy-aarch64/linux-*.tar.*

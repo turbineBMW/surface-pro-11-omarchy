@@ -1,0 +1,54 @@
+#!/bin/bash
+# Compare each package here with the same package in Omarchy's repository.
+#
+#   bin/check-upstream [CHANNEL]    channel: edge (default), rc or stable
+#
+# Packages here use the pkgrel Omarchy will give the change plus ".N"
+# (7.3-1.13 is our 13th build on top of Omarchy's 7.3-1). Once Omarchy
+# publishes that base version or a newer one, the package is listed as
+# "caught up": check that Omarchy's build has every fix ours carries, then
+# delete its directory here. Exits 1 if any package has caught up.
+set -euo pipefail
+
+root=$(realpath "${BASH_SOURCE[0]%/*}/..")
+channel=${1:-edge}
+arch=$(uname -m)
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+curl -fsSL "https://pkgs.omarchy.org/$channel/$arch/omarchy.db?$(date +%s)" -o "$tmp/omarchy.db"
+mkdir "$tmp/db"
+tar -xf "$tmp/omarchy.db" -C "$tmp/db"
+
+declare -A upstream=()
+for desc in "$tmp"/db/*/desc; do
+  name=$(awk '/^%NAME%$/ { getline; print; exit }' "$desc")
+  version=$(awk '/^%VERSION%$/ { getline; print; exit }' "$desc")
+  upstream[$name]=$version
+done
+
+caught_up=0
+printf '%-28s %-14s %-14s %s\n' PACKAGE OURS OMARCHY STATE
+for dir in "$root"/pkgbuilds/*/; do
+  info=$(cd "$dir" && makepkg --printsrcinfo)
+  epoch=$(sed -n 's/^\tepoch = //p' <<<"$info" | head -1)
+  pkgver=$(sed -n 's/^\tpkgver = //p' <<<"$info" | head -1)
+  pkgrel=$(sed -n 's/^\tpkgrel = //p' <<<"$info" | head -1)
+  ours=${epoch:+$epoch:}$pkgver-$pkgrel
+  base=${epoch:+$epoch:}$pkgver-${pkgrel%%.*}
+  while read -r name; do
+    theirs=${upstream[$name]:-}
+    if [[ -z $theirs ]]; then
+      state="ours only"
+    elif [[ $pkgrel != *.* ]]; then
+      state="ours only (no .N pkgrel)"
+    elif (( $(vercmp "$theirs" "$base") >= 0 )); then
+      state="CAUGHT UP: check, then retire"
+      caught_up=1
+    else
+      state="carried"
+    fi
+    printf '%-28s %-14s %-14s %s\n' "$name" "$ours" "${theirs:--}" "$state"
+  done < <(sed -n 's/^pkgname = //p' <<<"$info")
+done
+exit $caught_up

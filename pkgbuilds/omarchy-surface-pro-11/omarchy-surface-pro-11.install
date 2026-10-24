@@ -1,0 +1,20 @@
+_board_setup() {
+  local result
+  result=$(/usr/lib/omarchy-surface-pro-11/surface-pro-11-board-setup) || {
+    echo "omarchy-surface-pro-11: board setup failed; rerun it with"
+    echo "  sudo /usr/lib/omarchy-surface-pro-11/surface-pro-11-board-setup"
+    return 0
+  }
+  if [[ $result == *rebuild* ]]; then
+    echo "omarchy-surface-pro-11: boot setup changed, rebuilding the boot image"
+    limine-mkinitcpio || echo "omarchy-surface-pro-11: rebuild failed; run 'sudo limine-mkinitcpio' before rebooting"
+  fi
+}
+
+post_install() {
+  _board_setup
+}
+
+post_upgrade() {
+  _board_setup
+}

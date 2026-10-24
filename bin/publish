@@ -1,0 +1,89 @@
+#!/bin/bash
+# Sync out/<arch> with the GitHub release that serves the pacman repository.
+#
+#   bin/publish fetch    download the published database into out/<arch>
+#   bin/publish upload   upload what bin/build made, then the database, and
+#                        delete release assets the database no longer lists
+#
+# The release tag is the architecture, so pacman's server line is
+#   https://github.com/OWNER/REPO/releases/download/$arch
+# Needs gh, logged in (GH_TOKEN in CI). GH_REPO picks the repository.
+set -euo pipefail
+
+root=$(realpath "${BASH_SOURCE[0]%/*}/..")
+repo=surface-pro-11
+arch=${ARCH:-$(uname -m)}
+out=$(realpath -m "${OUT_DIR:-$root/out/$arch}")
+tag=$arch
+mkdir -p "$out"
+
+# Release assets are plain files: the database goes up under the names pacman
+# asks for (repo.db, repo.files), not as repo-add's symlinks.
+db_assets=("$repo.db" "$repo.files")
+
+fetch() {
+  if ! gh release view "$tag" >/dev/null 2>&1; then
+    echo "==> No release $tag yet; starting an empty repository"
+    return 0
+  fi
+  local name
+  for name in "${db_assets[@]}"; do
+    rm -f "$out/$name" "$out/$name.tar.gz" "$out/$name.sig" "$out/$name.tar.gz.sig"
+    gh release download "$tag" --dir "$out" --pattern "$name" --pattern "$name.sig" 2>/dev/null || true
+    if [[ -f $out/$name ]]; then
+      mv "$out/$name" "$out/$name.tar.gz"
+      ln -s "$name.tar.gz" "$out/$name"
+      if [[ -f $out/$name.sig ]]; then
+        mv "$out/$name.sig" "$out/$name.tar.gz.sig"
+        ln -s "$name.tar.gz.sig" "$out/$name.sig"
+      fi
+    fi
+  done
+  echo "==> Fetched the published database"
+}
+
+upload() {
+  gh release view "$tag" >/dev/null 2>&1 ||
+    gh release create "$tag" --title "Packages ($tag)" \
+      --notes "pacman repository for $tag. See the README for how to add it."
+
+  local file files=()
+  if [[ -s $out/.built ]]; then
+    while read -r file; do
+      files+=("$file")
+      [[ -f $file.sig ]] && files+=("$file.sig")
+    done <"$out/.built"
+  fi
+  if (( ${#files[@]} )); then
+    gh release upload "$tag" --clobber "${files[@]}"
+  fi
+
+  local staging name
+  staging=$(mktemp -d)
+  for name in "${db_assets[@]}"; do
+    [[ -e $out/$name ]] || continue
+    cp -L "$out/$name" "$staging/$name"
+    [[ -e $out/$name.sig ]] && cp -L "$out/$name.sig" "$staging/$name.sig"
+  done
+  gh release upload "$tag" --clobber "$staging"/*
+  rm -rf "$staging"
+
+  # Everything the database lists, with signatures, plus the database itself
+  local keep asset
+  keep=$( {
+    tar -xOzf "$out/$repo.db.tar.gz" --wildcards '*/desc' |
+      awk '/^%FILENAME%$/ { getline; print; print $0 ".sig" }'
+    for name in "${db_assets[@]}"; do echo "$name"; echo "$name.sig"; done
+  } )
+  while read -r asset; do
+    [[ -n $asset ]] || continue
+    grep -qxF "$asset" <<<"$keep" || gh release delete-asset "$tag" "$asset" --yes
+  done < <(gh release view "$tag" --json assets --jq '.assets[].name')
+  echo "==> Published to release $tag"
+}
+
+case ${1:-} in
+  fetch) fetch ;;
+  upload) upload ;;
+  *) echo "Usage: bin/publish {fetch|upload}" >&2; exit 1 ;;
+esac

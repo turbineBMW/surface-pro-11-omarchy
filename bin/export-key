@@ -1,0 +1,21 @@
+#!/bin/bash
+# Write the repository's public signing key into the keyring package and the
+# bootstrap copy install.sh fetches.
+#
+#   bin/export-key FINGERPRINT
+set -euo pipefail
+
+root=$(realpath "${BASH_SOURCE[0]%/*}/..")
+fpr=${1:?Usage: bin/export-key FINGERPRINT}
+fpr=${fpr//[[:space:]]/}
+[[ $fpr =~ ^[0-9A-Fa-f]{40}$ ]] || { echo "Give the full 40-character fingerprint" >&2; exit 1; }
+fpr=${fpr^^}
+
+keyring=$root/pkgbuilds/surface-pro-11-keyring
+gpg --export --armor "$fpr" >"$keyring/surface-pro-11.gpg"
+[[ -s $keyring/surface-pro-11.gpg ]] || { echo "No public key $fpr in the GnuPG keyring" >&2; exit 1; }
+echo "$fpr:4:" >"$keyring/surface-pro-11-trusted"
+: >"$keyring/surface-pro-11-revoked"
+install -Dm644 "$keyring/surface-pro-11.gpg" "$root/keys/surface-pro-11.asc"
+sed -i "s/^KEY_FINGERPRINT=.*/KEY_FINGERPRINT=$fpr/" "$root/install.sh"
+echo "Exported $fpr. Bump the keyring package's pkgrel and commit."

@@ -1,0 +1,71 @@
+# Surface Pro 11 for Omarchy
+
+A pacman repository that adds Surface Pro 11 support to a stock
+[Omarchy](https://omarchy.org) install while that support is still in review
+upstream. It is a community add-on by a member of Omarchy's Snapdragon team,
+not an official Omarchy project.
+
+Tested on the Surface Pro 11 with Snapdragon X Elite and OLED display
+(`microsoft,denali-oled`). The LCD and X Plus models use other device trees
+and are not supported yet.
+
+## Install
+
+On a Surface Pro 11 that already runs Omarchy:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/turbineBMW/surface-pro-11-omarchy/main/install.sh | bash
+```
+
+This trusts the repository's signing key, adds `[surface-pro-11]` above
+`[omarchy]` in `/etc/pacman.conf`, and installs `omarchy-surface-pro-11`.
+From then on `omarchy-update` keeps everything current. To stop using the
+repository:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/turbineBMW/surface-pro-11-omarchy/main/install.sh | bash -s -- --remove
+```
+
+The packages stay installed until Omarchy publishes newer versions.
+
+## What it carries
+
+Only packages that differ from Omarchy's. Each one leaves this repository
+once Omarchy ships the same fixes.
+
+| Package | Version | Upstream | Adds |
+|---|---|---|---|
+| `linux-omarchy` | 7.3-1.13 | [omarchy-pkgs#1417](https://github.com/omacom/omarchy-pkgs/pull/1417) (Linux 7.3) plus four patches | Suspend no longer hard-locks when it follows a resume closely (2217, keeps the Surface EC's UART link alive); Slim Pen click-to-reconnect ([2218-2219](https://lore.kernel.org/all/20261024112435.247650-1-turbine.bmw@gmail.com/)); pen reconnect after re-pairing ([2220](https://lore.kernel.org/all/20261024004649.56724-1-turbine.bmw@gmail.com/)) |
+| `surface-pro-11-support` | 1-4.1 | [omarchy-pkgs#1528](https://github.com/omacom/omarchy-pkgs/pull/1528), then pen dock and speakers | Touchpad mode after resume, Bluetooth palm rejection, Slim Pen pairing in the keyboard dock, Windows speaker tuning |
+| `omarchy-surface-pro-11` | 1-1 | [omarchy#14390](https://github.com/omacom/omarchy/pull/14390) | The board setup a #14390 install does: OLED device tree pin, panel and keyboard before disk unlock, light sensor |
+| `surface-pro-11-keyring` | 1-1 | | This repository's signing key |
+
+No firmware is in this repository. The Surface's DSP, GPU and Wi-Fi firmware
+belong to Microsoft and Qualcomm and come from your own Windows install
+through Omarchy's `qcom-firmware-extract`.
+
+## Versions
+
+A carried package uses the pkgrel Omarchy will give the change, plus `.N`:
+`7.3-1.13` is the 13th build on top of Omarchy's `7.3-1`. When Omarchy
+publishes `7.3-1` or later, `bin/check-upstream` reports the package as
+caught up. Once Omarchy's build has every fix ours carries, the package's
+directory is deleted here and pacman moves to Omarchy's next release.
+
+## Maintaining
+
+```sh
+bin/build [PKGBASE...]    # build into out/aarch64, skipping versions already there
+bin/check-upstream        # compare with Omarchy edge
+bin/publish fetch|upload  # sync out/aarch64 with the GitHub release
+bin/export-key FPR        # put the signing key into the keyring package and install.sh
+```
+
+CI builds in Omarchy's own builder image on GitHub's arm64 runners, only
+rebuilding packages whose version changed, and publishes the release
+`aarch64`, which is the repository pacman downloads from. It needs the
+`SIGNING_KEY` secret (armored private signing key, no passphrase) and the
+`SIGN_KEY` variable (its fingerprint). A daily job fails when Omarchy has
+caught up with a carried package.
+
+What comes next is in [docs/ROADMAP.md](docs/ROADMAP.md).

@@ -1,0 +1,111 @@
+#!/bin/bash
+# Build the packages under pkgbuilds/ into out/<arch> and index them in the
+# surface-pro-11 repository database.
+#
+#   bin/build [PKGBASE...]    build these pkgbuilds/ directories (default: all)
+#
+# A package whose exact version is already in out/'s database is skipped, so
+# CI fetches only the published database and rebuilds what changed. Packages
+# whose directory left pkgbuilds/ are removed from the database.
+#
+# Environment:
+#   SIGN_KEY=FINGERPRINT     sign the packages and the database
+#   INSTALL_MAKEDEPENDS=1    install makedepends and checkdepends with pacman
+#                            first (CI; locally they are expected to be there)
+#   OUT_DIR, SRCDEST         where packages and downloaded sources go
+set -euo pipefail
+
+root=$(realpath "${BASH_SOURCE[0]%/*}/..")
+repo=surface-pro-11
+arch=$(uname -m)
+out=$(realpath -m "${OUT_DIR:-$root/out/$arch}")
+export SRCDEST=$(realpath -m "${SRCDEST:-$root/.cache/sources}")
+db=$out/$repo.db.tar.gz
+mkdir -p "$out" "$SRCDEST"
+
+sign=()
+if [[ -n ${SIGN_KEY:-} ]]; then
+  export GPGKEY=$SIGN_KEY
+  sign=(--sign --key "$SIGN_KEY")
+fi
+
+# name-version entries in the database, one per line
+db_entries() {
+  [[ -f $db ]] || return 0
+  tar -tzf "$db" | sed -n 's|^\([^/]*\)/$|\1|p'
+}
+
+# Print "pkgname fullversion" for each package a PKGBUILD directory builds.
+srcinfo_packages() {
+  local dir=$1 info epoch="" pkgver="" pkgrel=""
+  info=$(cd "$dir" && makepkg --printsrcinfo)
+  epoch=$(sed -n 's/^\tepoch = //p' <<<"$info" | head -1)
+  pkgver=$(sed -n 's/^\tpkgver = //p' <<<"$info" | head -1)
+  pkgrel=$(sed -n 's/^\tpkgrel = //p' <<<"$info" | head -1)
+  sed -n 's/^pkgname = //p' <<<"$info" | while read -r name; do
+    echo "$name ${epoch:+$epoch:}$pkgver-$pkgrel"
+  done
+}
+
+if (( $# )); then
+  bases=("$@")
+else
+  bases=()
+  for dir in "$root"/pkgbuilds/*/; do bases+=("$(basename "$dir")"); done
+fi
+
+entries=$(db_entries)
+built=()
+wanted=()
+for base in "${bases[@]}"; do
+  dir=$root/pkgbuilds/$base
+  [[ -f $dir/PKGBUILD ]] || { echo "No such package: $base" >&2; exit 1; }
+
+  missing=false
+  while read -r name version; do
+    wanted+=("$name")
+    grep -qxF "$name-$version" <<<"$entries" || missing=true
+  done < <(srcinfo_packages "$dir")
+  if [[ $missing == false ]]; then
+    echo "==> $base: up to date"
+    continue
+  fi
+
+  echo "==> $base: building"
+  if [[ ${INSTALL_MAKEDEPENDS:-} == 1 ]]; then
+    mapfile -t deps < <(cd "$dir" && makepkg --printsrcinfo |
+      sed -n 's/^\t\(makedepends\|checkdepends\)\(_[a-z0-9_]*\)\? = //p' | sort -u)
+    if (( ${#deps[@]} )); then
+      sudo pacman -S --needed --noconfirm "${deps[@]}"
+    fi
+  fi
+
+  before=$(mktemp)
+  ls -1 "$out" >"$before"
+  (cd "$dir" && PKGDEST=$out makepkg --nodeps --cleanbuild --clean --force ${SIGN_KEY:+--sign})
+  while read -r file; do
+    [[ $file == *.pkg.tar.* && $file != *.sig ]] && built+=("$out/$file")
+  done < <(comm -13 "$before" <(ls -1 "$out"))
+  rm -f "$before"
+done
+
+if (( ${#built[@]} )); then
+  repo-add --remove "${sign[@]}" "$db" "${built[@]}"
+fi
+
+# Packages that left pkgbuilds/ (their fix is upstream now) leave the
+# database too. Only a full build knows the whole set.
+if (( $# == 0 )) && [[ -f $db ]]; then
+  stale=()
+  while read -r entry; do
+    name=${entry%-*}
+    name=${name%-*}
+    printf '%s\n' "${wanted[@]}" | grep -qxF "$name" || stale+=("$name")
+  done < <(db_entries)
+  if (( ${#stale[@]} )); then
+    repo-remove "${sign[@]}" "$db" "${stale[@]}"
+  fi
+fi
+
+if (( ${#built[@]} )); then printf '%s\n' "${built[@]}"; fi >"$out/.built"
+echo "==> ${#built[@]} package file(s) built into $out"

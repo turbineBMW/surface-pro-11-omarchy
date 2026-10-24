@@ -1,0 +1,18 @@
+# Maintainer: Brandon Williams <turbine.bmw@gmail.com>
+pkgname=surface-pro-11-keyring
+pkgver=1
+pkgrel=1
+pkgdesc="Key that signs the surface-pro-11 package repository"
+arch=('any')
+url="https://github.com/turbineBMW/surface-pro-11-omarchy"
+license=('MIT')
+install=$pkgname.install
+# The public key, written by bin/export-key; the private key lives only with
+# the maintainer and in the CI secret.
+source=('surface-pro-11.gpg' 'surface-pro-11-trusted' 'surface-pro-11-revoked')
+sha256sums=('SKIP' 'SKIP' 'SKIP')
+
+package() {
+  install -Dm644 -t "$pkgdir/usr/share/pacman/keyrings" \
+    surface-pro-11.gpg surface-pro-11-trusted surface-pro-11-revoked
+}
