@@ -20,6 +20,8 @@ mkdir -p "$out"
 # Release assets are plain files: the database goes up under the names pacman
 # asks for (repo.db, repo.files), not as repo-add's symlinks.
 db_assets=("$repo.db" "$repo.files")
+# The repository's signed description for the Omarchy Arm installer.
+recipe_asset=$repo.recipe.json
 
 fetch() {
   if ! gh release view "$tag" >/dev/null 2>&1; then
@@ -65,6 +67,9 @@ upload() {
     cp -L "$out/$name" "$staging/$name"
     [[ -e $out/$name.sig ]] && cp -L "$out/$name.sig" "$staging/$name.sig"
   done
+  if [[ -f $out/$recipe_asset.sig ]]; then
+    cp "$out/$recipe_asset" "$out/$recipe_asset.sig" "$staging/"
+  fi
   gh release upload "$tag" --clobber "$staging"/*
   rm -rf "$staging"
 
@@ -74,6 +79,7 @@ upload() {
     tar -xOzf "$out/$repo.db.tar.gz" --wildcards '*/desc' |
       awk '/^%FILENAME%$/ { getline; print; print $0 ".sig" }'
     for name in "${db_assets[@]}"; do echo "$name"; echo "$name.sig"; done
+    echo "$recipe_asset"; echo "$recipe_asset.sig"
   } )
   while read -r asset; do
     [[ -n $asset ]] || continue

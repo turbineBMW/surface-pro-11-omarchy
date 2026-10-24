@@ -1,0 +1,63 @@
+{
+  "format": 1,
+  "repo": "surface-pro-11",
+  "name": "Surface Pro 11 extras",
+  "summary": "The Surface Pro 11's fixes and features while they make their way into Omarchy. Each package here either replaces Omarchy's package of the same name with a newer, patched one, or adds something Omarchy does not have yet.",
+  "maintainer": { "name": "Brandon Williams", "github": "turbineBMW" },
+  "homepage": "https://github.com/turbineBMW/surface-pro-11-omarchy",
+  "status": "active",
+  "packages": [
+    {
+      "name": "linux-omarchy",
+      "replaces": true,
+      "description": "Omarchy's 7.3 kernel with the Surface's suspend fix (the SAM link no longer drops when its UART powers down) and the Slim Pen pairing fixes.",
+      "upstream": "https://github.com/omacom/omarchy-pkgs/pull/1417"
+    },
+    {
+      "name": "linux-omarchy-headers",
+      "replaces": true,
+      "description": "Headers for that kernel, for DKMS modules.",
+      "upstream": "https://github.com/omacom/omarchy-pkgs/pull/1417"
+    },
+    {
+      "name": "surface-pro-11-support",
+      "replaces": true,
+      "description": "Speakers tuned the way Windows tunes them, the cameras, sensors and battery charge limit, the Flex Keyboard, and the Slim Pen's docked state."
+    },
+    {
+      "name": "omarchy-surface-pro-11",
+      "replaces": false,
+      "description": "Sets the Surface up on first boot and pulls in the packages below."
+    },
+    {
+      "name": "surface-pro-11-plugins",
+      "replaces": false,
+      "description": "Omarchy shell plugins: the Slim Pen's OSD, the monitor with automatic brightness, the battery charge limit, the lock screen with face unlock, and rounded corners for the Surface's rounded screen."
+    },
+    {
+      "name": "surface-pro-11-face",
+      "replaces": false,
+      "description": "Face unlock with the IR camera: the camera setup facelock needs, and Face Unlock in Omarchy's settings."
+    },
+    {
+      "name": "facelock",
+      "replaces": false,
+      "description": "Face recognition for login and the lock screen, newer than its last release so it supports the Surface's IR camera."
+    },
+    {
+      "name": "onnxruntime-bin",
+      "replaces": false,
+      "description": "The neural-network runtime facelock uses."
+    },
+    {
+      "name": "surface-pro-11-windows",
+      "replaces": false,
+      "description": "A boot menu entry for Windows when it stays on the Surface, and Restart to Windows in Omarchy."
+    },
+    {
+      "name": "surface-pro-11-keyring",
+      "replaces": false,
+      "description": "This repository's signing key, so pacman keeps trusting its updates."
+    }
+  ]
+}

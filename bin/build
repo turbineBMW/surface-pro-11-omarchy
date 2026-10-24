@@ -114,5 +114,16 @@ if (( $# == 0 )) && [[ -f $db ]]; then
   fi
 fi
 
+# The repository's own description for the Omarchy Arm installer (what each
+# package does, whether it is still needed), signed like the database so the
+# installer can trust it through the key its recipe pins.
+if [[ -f $root/omarchy-recipe.json ]]; then
+  cp "$root/omarchy-recipe.json" "$out/$repo.recipe.json"
+  rm -f "$out/$repo.recipe.json.sig"
+  if [[ -n ${SIGN_KEY:-} ]]; then
+    gpg --batch --yes --local-user "$SIGN_KEY" --detach-sign "$out/$repo.recipe.json"
+  fi
+fi
+
 if (( ${#built[@]} )); then printf '%s\n' "${built[@]}"; fi >"$out/.built"
 echo "==> ${#built[@]} package file(s) built into $out"
