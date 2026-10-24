@@ -1,0 +1,95 @@
+#!/bin/bash
+# Write the installer to a USB stick from Linux and add the OMARCHY_FW
+# partition with the Surface's firmware, as the Windows USB creator does.
+#
+#   sudo bin/make-usb ISO DEVICE [--firmware FILEREPOSITORY]
+#
+# FILEREPOSITORY is a Windows DriverStore/FileRepository directory, such as
+# "/run/media/$USER/Local Disk/Windows/System32/DriverStore/FileRepository".
+# Only what iso/firmware-files.txt names is copied. Without --firmware the
+# partition is left empty and the installer reads the Windows partition.
+#
+# Everything on DEVICE is erased. It must be a removable USB disk, and the
+# device name has to be typed back to confirm.
+set -euo pipefail
+
+root=$(realpath "${BASH_SOURCE[0]%/*}/..")
+label=OMARCHY_FW
+size_mib=128
+
+die() { printf 'make-usb: %s\n' "$*" >&2; exit 1; }
+
+iso=${1:-}
+device=${2:-}
+[[ -f $iso && -b $device ]] || die "usage: sudo bin/make-usb ISO DEVICE [--firmware FILEREPOSITORY]"
+shift 2
+store=""
+if [[ ${1:-} == --firmware ]]; then
+  store=${2:?--firmware needs a directory}
+  [[ -d $store ]] || die "no directory $store"
+fi
+((EUID == 0)) || die "run as root"
+
+name=${device##*/}
+[[ $(lsblk -dno TRAN "$device") == usb && $(lsblk -dno RM "$device") == 1 ]] ||
+  die "$device is not a removable USB disk"
+lsblk -o NAME,SIZE,MODEL,SERIAL,MOUNTPOINTS "$device"
+read -r -p "Erase $device and write $(basename "$iso")? Type '$name' to continue: " answer
+[[ $answer == "$name" ]] || die "not confirmed"
+
+for part in $(lsblk -lnpo NAME "$device" | tail -n +2); do
+  umount "$part" 2>/dev/null || true
+done
+
+echo "==> Writing the image"
+dd if="$iso" of="$device" bs=4M oflag=direct conv=fsync status=progress
+partprobe "$device"
+udevadm settle
+
+echo "==> Adding the $label partition"
+case $(sfdisk --dump "$device" | sed -n 's/^label: //p') in
+  gpt)
+    # The image's backup GPT sits at its own end; move it to the stick's.
+    sfdisk --quiet --relocate gpt-bak-std "$device"
+    # Microsoft basic data, so Windows mounts it too.
+    echo "size=${size_mib}MiB, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7, name=$label" |
+      sfdisk --quiet --append "$device"
+    ;;
+  dos)
+    echo ",${size_mib}M,0c" | sfdisk --quiet --append "$device"
+    ;;
+  *) die "unexpected partition table on $device" ;;
+esac
+partprobe "$device"
+udevadm settle
+part=$(lsblk -lnpo NAME "$device" | tail -n1)
+mkfs.vfat -F 32 -n "$label" "$part" >/dev/null
+
+if [[ -n $store ]]; then
+  echo "==> Copying the firmware from $store"
+  mnt=$(mktemp -d)
+  mount "$part" "$mnt"
+  trap 'umount "$mnt"; rmdir "$mnt"' EXIT
+  dest=$mnt/DriverStore/FileRepository
+  copied=0
+  while read -r pattern files; do
+    [[ -z $pattern || $pattern == \#* ]] && continue
+    for folder in "$store"/$pattern; do
+      [[ -d $folder ]] || continue
+      mkdir -p "$dest/${folder##*/}"
+      if [[ $files == "*" ]]; then
+        cp -r "$folder"/. "$dest/${folder##*/}/"
+      else
+        for file in $files; do
+          match=$(find "$folder" -maxdepth 1 -type f -iname "$file" -print -quit)
+          [[ -n $match ]] && cp "$match" "$dest/${folder##*/}/"
+        done
+      fi
+      copied=$((copied + 1))
+    done
+  done <"$root/iso/firmware-files.txt"
+  ((copied)) || die "none of the driver packages in iso/firmware-files.txt are in $store"
+  du -sh "$dest"
+fi
+sync
+echo "==> Done: $device"

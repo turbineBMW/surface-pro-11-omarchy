@@ -1,0 +1,11 @@
+# What the install stick's OMARCHY_FW partition carries from Windows, read
+# by both stick makers (bin/make-usb on Linux, the Windows USB creator).
+# Each line: a DriverStore\FileRepository folder pattern, then the files to
+# copy from it (* = all). Files keep their package folder, as the installer's
+# qcom-firmware-extract matches each DSP device tree to the firmware beside it.
+# Several versions of a folder (driver updates) are all copied; the extractor
+# picks the one whose files belong together.
+surfacepro_ext_adsp8380.inf_arm64_*    qcadsp8380.mbn adsp_dtbs.elf
+qcnspmcdm_ext_cdsp8380.inf_arm64_*     qccdsp8380.mbn cdsp_dtbs.elf
+qcdx8380.inf_arm64_*                   qcdxkmsuc8380.mbn
+surfacepro_snscfgcrd8380.inf_arm64_*   *
