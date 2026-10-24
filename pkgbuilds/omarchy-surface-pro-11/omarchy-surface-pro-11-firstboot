@@ -1,0 +1,41 @@
+#!/bin/bash
+# What an installer cannot do while it runs, done once on the first boot:
+#
+#   - add the surface-pro-11 repository above [omarchy]: Omarchy's installer
+#     restores a stock /etc/pacman.conf as its last step;
+#   - run the board setup again, now that the installer has staged Windows'
+#     driver store (the sensor configuration), rebuilding the boot image if
+#     that changes anything.
+#
+# A stamp keeps it to once, so a repository the user removes stays removed.
+set -euo pipefail
+
+stamp=/var/lib/omarchy-surface-pro-11/firstboot-done
+pacman_conf=/etc/pacman.conf
+begin="# BEGIN SURFACE PRO 11 REPOSITORY"
+end="# END SURFACE PRO 11 REPOSITORY"
+
+if ! grep -qxF "$begin" "$pacman_conf" && grep -qx '\[omarchy\]' "$pacman_conf"; then
+  tmp=$(mktemp)
+  awk -v begin="$begin" -v end="$end" '
+    !done && $0 == "[omarchy]" {
+      print begin
+      print "[surface-pro-11]"
+      print "Server = https://github.com/turbineBMW/surface-pro-11-omarchy/releases/download/$arch"
+      print end
+      print ""
+      done = 1
+    }
+    { print }
+  ' "$pacman_conf" >"$tmp"
+  install -m644 "$tmp" "$pacman_conf"
+  rm -f "$tmp"
+  echo "added the surface-pro-11 repository to $pacman_conf"
+fi
+
+if [[ $(/usr/lib/omarchy-surface-pro-11/surface-pro-11-board-setup) == *rebuild* ]]; then
+  limine-mkinitcpio
+fi
+
+mkdir -p "${stamp%/*}"
+touch "$stamp"

@@ -1,0 +1,135 @@
+From a989ab0c880004e030e83afb8a5fdd0433f0dae5 Mon Sep 17 00:00:00 2001
+From: Brandon Williams <turbine.bmw@gmail.com>
+Date: Sat, 24 Oct 2026 11:43:13 -0400
+Subject: [PATCH 2/2] Install a board's add-on package when the image carries
+ it
+
+A board whose device tree names an add-on package (the Surface Pro 11 X
+Elite OLED: omarchy-surface-pro-11) gets it in the runtime install when the
+image's offline mirror has it, which a package bundle built into the image
+provides. Other boards and images without the package are unaffected.
+
+Validated with unit tests (173/173).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../omarchy-iso/orchestrator/phases_impl.py   | 25 +++++++
+ test/unit/test_board_packages.py              | 67 +++++++++++++++++++
+ 2 files changed, 92 insertions(+)
+ create mode 100644 test/unit/test_board_packages.py
+
+diff --git a/configs/airootfs/usr/share/omarchy-iso/orchestrator/phases_impl.py b/configs/airootfs/usr/share/omarchy-iso/orchestrator/phases_impl.py
+index 5c36e84..d47607f 100644
+--- a/configs/airootfs/usr/share/omarchy-iso/orchestrator/phases_impl.py
++++ b/configs/airootfs/usr/share/omarchy-iso/orchestrator/phases_impl.py
+@@ -883,9 +883,34 @@ def _runtime_package_list(ctx: InstallContext, base_pkgs_file: Path | None = Non
+         for s in ("limine", "limine-mkinitcpio-hook", "limine-snapper-sync", "snapper"):
+             if s not in already_installed and s not in pkgs:
+                 pkgs.append(s)
++    for s in _board_packages():
++        if s not in already_installed and s not in pkgs:
++            pkgs.append(s)
+     return pkgs
+ 
+ 
++# Board add-on packages, by device-tree compatible, installed when the image's
++# offline mirror carries them (a package bundle built into the image).
++BOARD_PACKAGES = {
++    "microsoft,denali-oled": "omarchy-surface-pro-11",
++}
++
++
++def _board_packages(
++    compatible_path: Path = Path("/sys/firmware/devicetree/base/compatible"),
++    mirror: Path = Path("/var/cache/omarchy/mirror/offline"),
++) -> list[str]:
++    try:
++        compatibles = compatible_path.read_bytes().decode(errors="replace").split("\0")
++    except OSError:
++        return []
++    found = []
++    for compatible, package in BOARD_PACKAGES.items():
++        if compatible in compatibles and any(mirror.glob(f"{package}-[0-9]*.pkg.tar.*")):
++            found.append(package)
++    return found
++
++
+ # ─────────────────────────────────────────────────────────────────────────────
+ # Install intent helpers: normalize the Omarchy-specific part of the
+ # configurator JSON so full-disk and pre-mounted installs feed the same boot
+diff --git a/test/unit/test_board_packages.py b/test/unit/test_board_packages.py
+new file mode 100644
+index 0000000..1d2e812
+--- /dev/null
++++ b/test/unit/test_board_packages.py
+@@ -0,0 +1,67 @@
++"""Board add-on packages: a board whose device tree names one, and whose
++image carries it in the offline mirror, gets it in the runtime install."""
++
++import sys
++import tempfile
++import types
++import unittest
++from pathlib import Path
++from unittest import mock
++
++ROOT = Path(__file__).resolve().parents[2]
++sys.path.insert(0, str(ROOT / "configs/airootfs/usr/share/omarchy-iso"))
++sys.modules.setdefault(
++    "orchestrator.archinstall_adapter",
++    types.ModuleType("orchestrator.archinstall_adapter"),
++)
++from orchestrator import phases_impl  # noqa: E402
++
++
++class BoardPackagesTest(unittest.TestCase):
++    def setUp(self):
++        self.tmp = Path(tempfile.mkdtemp())
++        self.mirror = self.tmp / "mirror"
++        self.mirror.mkdir()
++        self.compatible = self.tmp / "compatible"
++
++    def board(self, *compatibles):
++        self.compatible.write_bytes(b"\0".join(c.encode() for c in compatibles) + b"\0")
++
++    def packages(self):
++        return phases_impl._board_packages(compatible_path=self.compatible, mirror=self.mirror)
++
++    def test_surface_pro_11_with_the_package_in_the_mirror(self):
++        self.board("microsoft,denali-oled", "microsoft,denali", "qcom,x1e80100")
++        (self.mirror / "omarchy-surface-pro-11-1-5-any.pkg.tar.zst").touch()
++        self.assertEqual(self.packages(), ["omarchy-surface-pro-11"])
++
++    def test_not_when_the_image_does_not_carry_it(self):
++        self.board("microsoft,denali-oled", "microsoft,denali", "qcom,x1e80100")
++        self.assertEqual(self.packages(), [])
++
++    def test_not_on_another_board(self):
++        self.board("lenovo,yoga-slim7x", "qcom,x1e80100")
++        (self.mirror / "omarchy-surface-pro-11-1-5-any.pkg.tar.zst").touch()
++        self.assertEqual(self.packages(), [])
++
++    def test_not_on_the_lcd_model_sharing_the_family_name(self):
++        self.board("microsoft,denali", "qcom,x1e80100")
++        (self.mirror / "omarchy-surface-pro-11-1-5-any.pkg.tar.zst").touch()
++        self.assertEqual(self.packages(), [])
++
++    def test_no_device_tree(self):
++        (self.mirror / "omarchy-surface-pro-11-1-5-any.pkg.tar.zst").touch()
++        self.assertEqual(self.packages(), [])
++
++    def test_runtime_list_carries_it_last(self):
++        base = self.tmp / "base.packages"
++        base.write_text("hyprland\n")
++        ctx = types.SimpleNamespace()
++        with mock.patch.object(phases_impl, "_board_packages", return_value=["omarchy-surface-pro-11"]), \
++             mock.patch.object(phases_impl.platform, "machine", return_value="aarch64"):
++            packages = phases_impl._runtime_package_list(ctx, base)
++        self.assertEqual(packages[-1], "omarchy-surface-pro-11")
++
++
++if __name__ == "__main__":
++    unittest.main()
+-- 
+2.56.0
+

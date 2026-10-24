@@ -1,0 +1,14 @@
+[Unit]
+Description=Add Windows to the Limine boot menu once
+ConditionPathExists=!/var/lib/surface-pro-11-windows/limine-entry-done
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/surface-pro-11-windows-limine-entry
+# Once, whether or not there was a Windows to add: a Windows entry the user
+# deletes stays deleted.
+ExecStartPost=/usr/bin/install -D -m644 /dev/null /var/lib/surface-pro-11-windows/limine-entry-done
+
+[Install]
+WantedBy=multi-user.target

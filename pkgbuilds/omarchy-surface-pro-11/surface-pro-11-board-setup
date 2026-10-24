@@ -121,10 +121,18 @@ else
   changed=true
 fi
 
-# The light sensor configuration is copied from the Windows installation,
-# which a full-disk install has already erased; it can be rerun later.
+# The light sensor configuration is copied from Windows' driver store: the
+# copy an installer staged from the install media's OMARCHY_FW partition
+# when there is one (it survives erasing Windows, and BitLocker), otherwise
+# the Windows partition itself. The first-boot service runs this again once
+# the installer has staged it.
+staged_store=/var/lib/omarchy/firmware-stage/driver-store
 if [[ ! -d /var/lib/surface-pro-11-sensors/root ]]; then
-  surface-pro-11-sensors-extract >&2 || true
+  if [[ -d $staged_store ]]; then
+    surface-pro-11-sensors-extract -d "$staged_store" >&2 || true
+  else
+    surface-pro-11-sensors-extract >&2 || true
+  fi
 fi
 systemctl enable surface-pro-11-sensors.service 2>/dev/null || true
 

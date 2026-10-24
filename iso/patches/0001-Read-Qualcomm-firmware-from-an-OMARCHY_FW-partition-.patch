@@ -1,0 +1,168 @@
+From a565ae9651f01b0ba45d29e0419fd89ec8ef6f6e Mon Sep 17 00:00:00 2001
+From: Brandon Williams <turbine.bmw@gmail.com>
+Date: Sat, 24 Oct 2026 11:43:13 -0400
+Subject: [PATCH 1/2] Read Qualcomm firmware from an OMARCHY_FW partition on
+ the install media
+
+A USB creator running in Windows can copy the firmware out of the unlocked
+driver store onto a FAT partition labelled OMARCHY_FW, so the installer
+never has to read a BitLocker-encrypted Windows partition. The partition's
+DriverStore/FileRepository is staged with qcom-firmware-extract -d and its
+copy carried into the target for board packages' own Windows files; the
+Windows partition stays the fallback.
+
+Validated on a Surface Pro 11: qcom-firmware-extract --stage -d staged all
+five owner firmware files from a driver-store directory; unit tests 173/173.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../omarchy-iso/orchestrator/phases_impl.py   | 39 +++++++++
+ test/unit/test_firmware_partition.py          | 82 +++++++++++++++++++
+ 2 files changed, 121 insertions(+)
+ create mode 100644 test/unit/test_firmware_partition.py
+
+diff --git a/configs/airootfs/usr/share/omarchy-iso/orchestrator/phases_impl.py b/configs/airootfs/usr/share/omarchy-iso/orchestrator/phases_impl.py
+index 42eb2d7..5c36e84 100644
+--- a/configs/airootfs/usr/share/omarchy-iso/orchestrator/phases_impl.py
++++ b/configs/airootfs/usr/share/omarchy-iso/orchestrator/phases_impl.py
+@@ -196,10 +196,49 @@ LIVE_FIRMWARE_STAGE = Path("/run/omarchy/firmware")
+ TARGET_FIRMWARE_STAGE = Path("var/lib/omarchy/firmware-stage")
+ 
+ 
++# A FAT partition with this label on the install media can carry the
++# firmware instead of the Windows partition: a USB creator running in Windows
++# copies it from the unlocked driver store, so BitLocker never has to be
++# turned off. Its DriverStore/FileRepository holds the driver packages' files
++# under their package folder names, the layout Windows itself uses.
++FIRMWARE_PARTITION_LABEL = "OMARCHY_FW"
++FIRMWARE_PARTITION_MOUNT = Path("/run/omarchy/firmware-partition")
++STAGED_DRIVER_STORE = "driver-store"
++
++
++def _firmware_partition() -> str | None:
++    out = subprocess.run(
++        ["lsblk", "-rno", "PATH,LABEL,FSTYPE"], capture_output=True, text=True, check=False
++    ).stdout
++    for line in out.splitlines():
++        fields = line.split(" ")
++        if len(fields) == 3 and fields[1] == FIRMWARE_PARTITION_LABEL and fields[2] == "vfat":
++            return fields[0]
++    return None
++
++
+ def _stage_qualcomm_firmware() -> None:
+     tool = shutil.which("qcom-firmware-extract")
+     if not tool:
+         return
++    partition = _firmware_partition()
++    if partition:
++        FIRMWARE_PARTITION_MOUNT.mkdir(parents=True, exist_ok=True)
++        mounted = subprocess.run(
++            ["mount", "-o", "ro,nosuid,nodev,noexec", partition, str(FIRMWARE_PARTITION_MOUNT)],
++            check=False,
++        ).returncode == 0
++        store = FIRMWARE_PARTITION_MOUNT / "DriverStore" / "FileRepository"
++        if mounted and store.is_dir():
++            info(f"› saving Qualcomm firmware from the {FIRMWARE_PARTITION_LABEL} partition")
++            subprocess.run([tool, "--stage", str(LIVE_FIRMWARE_STAGE), "-d", str(store)], check=False)
++            # Board packages read their own Windows configuration (sensor
++            # calibration, say) from the copy the target receives.
++            shutil.copytree(store, LIVE_FIRMWARE_STAGE / STAGED_DRIVER_STORE, dirs_exist_ok=True)
++        if mounted:
++            subprocess.run(["umount", str(FIRMWARE_PARTITION_MOUNT)], check=False)
++        if (LIVE_FIRMWARE_STAGE / "manifest").is_file():
++            return
+     info("› saving Qualcomm firmware from Windows before the disk is written")
+     # Firmware extraction is idempotent and optional.
+     subprocess.run([tool, "--stage", str(LIVE_FIRMWARE_STAGE)], check=False)
+diff --git a/test/unit/test_firmware_partition.py b/test/unit/test_firmware_partition.py
+new file mode 100644
+index 0000000..f135dba
+--- /dev/null
++++ b/test/unit/test_firmware_partition.py
+@@ -0,0 +1,82 @@
++"""Firmware from an OMARCHY_FW partition on the install media, which a
++Windows-side USB creator fills from the unlocked driver store, before the
++installer falls back to reading the Windows partition."""
++
++import sys
++import tempfile
++import types
++import unittest
++from pathlib import Path
++from unittest import mock
++
++ROOT = Path(__file__).resolve().parents[2]
++sys.path.insert(0, str(ROOT / "configs/airootfs/usr/share/omarchy-iso"))
++sys.modules.setdefault(
++    "orchestrator.archinstall_adapter",
++    types.ModuleType("orchestrator.archinstall_adapter"),
++)
++from orchestrator import phases_impl  # noqa: E402
++
++
++def lsblk(stdout):
++    return types.SimpleNamespace(stdout=stdout, returncode=0)
++
++
++class FirmwarePartitionTest(unittest.TestCase):
++    def test_finds_the_labelled_fat_partition(self):
++        out = "/dev/sda1 OMARCHY_ISO iso9660\n/dev/sda3 OMARCHY_FW vfat\n/dev/nvme0n1p3 Local\\x20Disk ntfs\n"
++        with mock.patch.object(phases_impl.subprocess, "run", return_value=lsblk(out)):
++            self.assertEqual(phases_impl._firmware_partition(), "/dev/sda3")
++
++    def test_ignores_the_label_on_another_filesystem(self):
++        with mock.patch.object(phases_impl.subprocess, "run", return_value=lsblk("/dev/sda3 OMARCHY_FW ntfs\n")):
++            self.assertIsNone(phases_impl._firmware_partition())
++
++    def test_none_without_the_partition(self):
++        with mock.patch.object(phases_impl.subprocess, "run", return_value=lsblk("/dev/sda1 OMARCHY_ISO iso9660\n")):
++            self.assertIsNone(phases_impl._firmware_partition())
++
++
++class StageFromPartitionTest(unittest.TestCase):
++    def setUp(self):
++        self.tmp = Path(tempfile.mkdtemp())
++        self.stage = self.tmp / "stage"
++        self.mount = self.tmp / "mount"
++        store = self.mount / "DriverStore" / "FileRepository" / "qcsubsys.inf_arm64_x"
++        store.mkdir(parents=True)
++        (store / "qcadsp8380.mbn").write_bytes(b"adsp")
++        self.calls = []
++
++    def fake_run(self, cmd, **kwargs):
++        self.calls.append(cmd)
++        if "--stage" in cmd:
++            self.stage.mkdir(parents=True, exist_ok=True)
++            (self.stage / "manifest").write_text("x\n")
++        return types.SimpleNamespace(returncode=0, stdout="")
++
++    def stage_with(self, partition):
++        with mock.patch.object(phases_impl, "LIVE_FIRMWARE_STAGE", self.stage), \
++             mock.patch.object(phases_impl, "FIRMWARE_PARTITION_MOUNT", self.mount), \
++             mock.patch.object(phases_impl, "_firmware_partition", return_value=partition), \
++             mock.patch.object(phases_impl.shutil, "which", return_value="/usr/bin/qcom-firmware-extract"), \
++             mock.patch.object(phases_impl.subprocess, "run", side_effect=self.fake_run), \
++             mock.patch.object(phases_impl, "info"):
++            phases_impl._stage_qualcomm_firmware()
++
++    def test_stages_from_the_partition_and_not_from_windows(self):
++        self.stage_with("/dev/sda3")
++        staging = [c for c in self.calls if "--stage" in c]
++        self.assertEqual(len(staging), 1)
++        self.assertIn("-d", staging[0])
++        self.assertEqual(staging[0][-1], str(self.mount / "DriverStore" / "FileRepository"))
++        self.assertTrue((self.stage / "driver-store" / "qcsubsys.inf_arm64_x" / "qcadsp8380.mbn").is_file())
++        self.assertIn(["umount", str(self.mount)], self.calls)
++
++    def test_falls_back_to_windows_without_a_partition(self):
++        self.stage_with(None)
++        staging = [c for c in self.calls if "--stage" in c]
++        self.assertEqual(staging, [["/usr/bin/qcom-firmware-extract", "--stage", str(self.stage)]])
++
++
++if __name__ == "__main__":
++    unittest.main()
+-- 
+2.56.0
+

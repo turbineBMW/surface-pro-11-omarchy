@@ -1,3 +1,9 @@
 post_install() {
-  /usr/bin/surface-pro-11-windows-limine-entry || echo "surface-pro-11-windows: could not add Windows to the boot menu; run: sudo surface-pro-11-windows-limine-entry"
+  # Under an installer Limine is configured after this package, so the
+  # entry waits for the first boot (surface-pro-11-windows-entry.service).
+  if systemd-detect-virt --quiet --chroot; then
+    return 0
+  fi
+  systemctl start surface-pro-11-windows-entry.service ||
+    echo "surface-pro-11-windows: could not add Windows to the boot menu; run: sudo surface-pro-11-windows-limine-entry"
 }

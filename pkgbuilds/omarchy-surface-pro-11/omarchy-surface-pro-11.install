@@ -5,10 +5,14 @@ _board_setup() {
     echo "  sudo /usr/lib/omarchy-surface-pro-11/surface-pro-11-board-setup"
     return 0
   }
-  if [[ $result == *rebuild* ]]; then
-    echo "omarchy-surface-pro-11: boot setup changed, rebuilding the boot image"
-    limine-mkinitcpio || echo "omarchy-surface-pro-11: rebuild failed; run 'sudo limine-mkinitcpio' before rebooting"
+  [[ $result == *rebuild* ]] || return 0
+  # Under an installer (pacstrap, arch-chroot) the boot image is built once
+  # at the end, after every hardware drop-in, this package's included.
+  if systemd-detect-virt --quiet --chroot; then
+    return 0
   fi
+  echo "omarchy-surface-pro-11: boot setup changed, rebuilding the boot image"
+  limine-mkinitcpio || echo "omarchy-surface-pro-11: rebuild failed; run 'sudo limine-mkinitcpio' before rebooting"
 }
 
 post_install() {

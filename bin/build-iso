@@ -1,0 +1,65 @@
+#!/bin/bash
+# Build the Surface Pro 11 installer: Omarchy's aarch64 ISO with this
+# repository's packages built in.
+#
+#   bin/build-iso
+#
+# Takes omarchy-iso at the commit in iso/OMARCHY_ISO_COMMIT, applies
+# iso/patches/, and bundles every package in out/<arch>'s database as the
+# image's [platform] repository, which wins over Omarchy's builds of the same
+# name in the offline mirror. The image carries no firmware: the installer
+# reads it from the stick's OMARCHY_FW partition, or from Windows.
+#
+# Environment:
+#   ISO_WORK   checkout and output directory (default .cache/omarchy-iso)
+#   OUT_DIR    package repository directory (default out/<arch>)
+# Builds in a privileged container through `sudo docker`, as omarchy-iso does.
+set -euo pipefail
+
+root=$(realpath "${BASH_SOURCE[0]%/*}/..")
+arch=aarch64
+repo=surface-pro-11
+out=$(realpath -m "${OUT_DIR:-$root/out/$arch}")
+work=$(realpath -m "${ISO_WORK:-$root/.cache/omarchy-iso}")
+commit=$(<"$root/iso/OMARCHY_ISO_COMMIT")
+checkout=$work/omarchy-iso
+bundle=$work/bundle
+
+[[ -f $out/$repo.db.tar.gz ]] || { echo "No repository in $out; run bin/build first" >&2; exit 1; }
+
+echo "==> omarchy-iso at $commit with $(ls "$root"/iso/patches/*.patch | wc -l) patch(es)"
+if [[ ! -d $checkout/.git ]]; then
+  git clone --quiet https://github.com/omacom-io/omarchy-iso "$checkout"
+fi
+git -C "$checkout" fetch --quiet origin
+git -C "$checkout" checkout --quiet --detach "$commit"
+git -C "$checkout" reset --quiet --hard "$commit"
+git -C "$checkout" clean --quiet -fdx -e release/
+git -C "$checkout" submodule update --quiet --init
+git -C "$checkout" -c user.name=build -c user.email=build@localhost am --quiet "$root"/iso/patches/*.patch
+
+echo "==> Package bundle from $out"
+rm -rf "$bundle"
+mkdir -p "$bundle"
+tar -xOzf "$out/$repo.db.tar.gz" --wildcards '*/desc' |
+  awk '/^%FILENAME%$/ { getline; print }' |
+  while read -r file; do
+    cp "$out/$file" "$bundle/"
+  done
+(cd "$bundle" && sha256sum -- *.pkg.tar.* >SHA256SUMS)
+ls "$bundle" | sed 's/^/    /'
+
+echo "==> Building the ISO"
+# omarchy-iso-make elevates with plain `sudo docker`; with no terminal to ask
+# on, have sudo ask through the desktop's askpass dialog instead.
+if [[ ! -t 0 && -n ${SUDO_ASKPASS:-} ]]; then
+  shim=$work/sudo-askpass
+  mkdir -p "$shim"
+  printf '#!/bin/sh\nexec /usr/bin/sudo -A "$@"\n' >"$shim/sudo"
+  chmod +x "$shim/sudo"
+  export PATH=$shim:$PATH
+  export ASKPASS_REASON=${ASKPASS_REASON:-"Build the Surface Pro 11 Omarchy installer ISO in omarchy-iso's privileged build container"}
+fi
+"$checkout/bin/omarchy-iso-make" --arch "$arch" --edge --package-dir "$bundle" \
+  --keep-pkg-cache --no-boot-offer
+ls -t "$checkout"/release/*.iso | head -1

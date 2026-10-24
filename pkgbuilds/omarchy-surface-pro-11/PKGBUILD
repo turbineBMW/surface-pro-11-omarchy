@@ -1,7 +1,7 @@
 # Maintainer: Brandon Williams <turbine.bmw@gmail.com>
 pkgname=omarchy-surface-pro-11
 pkgver=1
-pkgrel=4
+pkgrel=5
 pkgdesc="Everything the Surface Pro 11 needs on top of stock Omarchy, until it is upstream"
 arch=('any')
 url="https://github.com/turbineBMW/surface-pro-11-omarchy"
@@ -11,9 +11,15 @@ license=('MIT')
 depends=('linux-omarchy' 'surface-pro-11-support' 'surface-pro-11-sensors' 'iptsd'
          'surface-pro-11-plugins' 'surface-pro-11-face' 'surface-pro-11-windows' 'surface-pro-11-keyring' 'limine-mkinitcpio-hook')
 install=omarchy-surface-pro-11.install
-source=('surface-pro-11-board-setup')
-sha256sums=('4f286aff1ca0a3e4fe0142b7e1b4f2e10710b6c5c35045be802b20073393e816')
+source=('surface-pro-11-board-setup' 'omarchy-surface-pro-11-firstboot' 'omarchy-surface-pro-11-firstboot.service')
+sha256sums=('a03b37121fa509dba0f82fa65e117688b9cb857daf4ca8c8efe608c2225e6c3c'
+            'ccfe4835ff207c62c85e01f2a8afada21c43ca1ae0842a1d36c8791c9b82af39'
+            'c8bd8bb394f8daa1bf9dd65f07678099201c5090e87b794aac3b01d369f10107')
 
 package() {
-  install -Dm755 surface-pro-11-board-setup "$pkgdir/usr/lib/$pkgname/surface-pro-11-board-setup"
+  install -Dm755 -t "$pkgdir/usr/lib/$pkgname" surface-pro-11-board-setup omarchy-surface-pro-11-firstboot
+  install -Dm644 -t "$pkgdir/usr/lib/systemd/system" omarchy-surface-pro-11-firstboot.service
+  install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+  ln -s ../omarchy-surface-pro-11-firstboot.service \
+    "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/omarchy-surface-pro-11-firstboot.service"
 }

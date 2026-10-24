@@ -1,0 +1,12 @@
+[Unit]
+Description=Finish the Surface Pro 11 setup an installer could not do
+ConditionPathExists=!/var/lib/omarchy-surface-pro-11/firstboot-done
+After=local-fs.target
+Before=surface-pro-11-sensors.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/omarchy-surface-pro-11/omarchy-surface-pro-11-firstboot
+
+[Install]
+WantedBy=multi-user.target
