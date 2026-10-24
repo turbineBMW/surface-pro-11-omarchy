@@ -125,5 +125,7 @@ if [[ -f $root/omarchy-recipe.json ]]; then
   fi
 fi
 
-if (( ${#built[@]} )); then printf '%s\n' "${built[@]}"; fi >"$out/.built"
+# File names only: bin/publish may run where out/ has another path (CI
+# builds in a container and publishes from the runner).
+if (( ${#built[@]} )); then printf '%s\n' "${built[@]##*/}"; fi >"$out/.built"
 echo "==> ${#built[@]} package file(s) built into $out"

@@ -3,7 +3,7 @@ name: Build and publish
 on:
   push:
     branches: [main]
-    paths: ['pkgbuilds/**', 'bin/**', 'creator/**', 'iso/firmware-files.txt', '.github/workflows/build.yml']
+    paths: ['pkgbuilds/**', 'bin/**', 'creator/**', 'iso/firmware-files.txt', 'omarchy-recipe.json', '.github/workflows/build.yml']
   workflow_dispatch:
   schedule:
     # Daily: has Omarchy caught up with a package carried here?
@@ -69,10 +69,32 @@ jobs:
         if: always()
         run: sudo chown -R "$(id -u):$(id -g)" .
 
-      - name: Publish
+      # The signed repository, for the publish job: a failed publish can be
+      # re-run on its own without building the kernel again.
+      - name: Keep the repository for publishing
         if: vars.SIGN_KEY != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-aarch64
+          path: out/aarch64/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    if: vars.SIGN_KEY != '' && github.event_name != 'schedule' && !github.event.repository.private
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: repository-aarch64
+          path: out/aarch64
+      - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
+          ARCH: aarch64
         run: bin/publish upload
 
   creator:

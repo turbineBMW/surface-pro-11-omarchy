@@ -52,6 +52,8 @@ upload() {
   local file files=()
   if [[ -s $out/.built ]]; then
     while read -r file; do
+      file=$out/${file##*/}
+      [[ -f $file ]] || { echo "bin/publish: $file was built but is missing" >&2; exit 1; }
       files+=("$file")
       [[ -f $file.sig ]] && files+=("$file.sig")
     done <"$out/.built"
