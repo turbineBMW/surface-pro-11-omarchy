@@ -1,4 +1,4 @@
-From a989ab0c880004e030e83afb8a5fdd0433f0dae5 Mon Sep 17 00:00:00 2001
+From 3b669869032e9389bdf26c27101d9ebe744a8cd1 Mon Sep 17 00:00:00 2001
 From: Brandon Williams <turbine.bmw@gmail.com>
 Date: Sat, 24 Oct 2026 11:43:13 -0400
 Subject: [PATCH 2/2] Install a board's add-on package when the image carries
@@ -19,10 +19,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
  create mode 100644 test/unit/test_board_packages.py
 
 diff --git a/configs/airootfs/usr/share/omarchy-iso/orchestrator/phases_impl.py b/configs/airootfs/usr/share/omarchy-iso/orchestrator/phases_impl.py
-index 5c36e84..d47607f 100644
+index 1f068ae..8b705cc 100644
 --- a/configs/airootfs/usr/share/omarchy-iso/orchestrator/phases_impl.py
 +++ b/configs/airootfs/usr/share/omarchy-iso/orchestrator/phases_impl.py
-@@ -883,9 +883,34 @@ def _runtime_package_list(ctx: InstallContext, base_pkgs_file: Path | None = Non
+@@ -893,9 +893,34 @@ def _runtime_package_list(ctx: InstallContext, base_pkgs_file: Path | None = Non
          for s in ("limine", "limine-mkinitcpio-hook", "limine-snapper-sync", "snapper"):
              if s not in already_installed and s not in pkgs:
                  pkgs.append(s)

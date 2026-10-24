@@ -60,6 +60,7 @@ if [[ ! -t 0 && -n ${SUDO_ASKPASS:-} ]]; then
   export PATH=$shim:$PATH
   export ASKPASS_REASON=${ASKPASS_REASON:-"Build the Surface Pro 11 Omarchy installer ISO in omarchy-iso's privileged build container"}
 fi
-"$checkout/bin/omarchy-iso-make" --arch "$arch" --edge --package-dir "$bundle" \
+cd "$checkout"
+bin/omarchy-iso-make --arch "$arch" --edge --package-dir "$bundle" \
   --keep-pkg-cache --no-boot-offer
 ls -t "$checkout"/release/*.iso | head -1
