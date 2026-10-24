@@ -19,7 +19,9 @@ concurrency:
 
 jobs:
   build:
-    if: github.event_name != 'schedule'
+    # Only a public repository can serve pacman (anonymous release downloads)
+    # and run on GitHub's free arm64 runners.
+    if: github.event_name != 'schedule' && !github.event.repository.private
     runs-on: ubuntu-24.04-arm
     # The kernel takes most of this on a 4-core runner.
     timeout-minutes: 340
@@ -69,6 +71,7 @@ jobs:
         run: bin/publish upload
 
   upstream:
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
