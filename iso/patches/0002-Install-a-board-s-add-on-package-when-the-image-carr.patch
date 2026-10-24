@@ -1,7 +1,7 @@
 From 3b669869032e9389bdf26c27101d9ebe744a8cd1 Mon Sep 17 00:00:00 2001
 From: Brandon Williams <turbine.bmw@gmail.com>
 Date: Sat, 24 Oct 2026 11:43:13 -0400
-Subject: [PATCH 2/2] Install a board's add-on package when the image carries
+Subject: [PATCH 2/3] Install a board's add-on package when the image carries
  it
 
 A board whose device tree names an add-on package (the Surface Pro 11 X
