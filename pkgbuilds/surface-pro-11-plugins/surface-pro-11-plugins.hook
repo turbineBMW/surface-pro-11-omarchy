@@ -1,0 +1,13 @@
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Target = usr/share/omarchy/shell/plugins/*
+Target = usr/share/surface-pro-11-plugins/*
+
+[Action]
+Description = Rebuilding the Surface Pro 11 shell plugins on Omarchy's...
+When = PostTransaction
+Exec = /usr/lib/surface-pro-11-plugins/surface-pro-11-plugins-generate
+Depends = jq
+Depends = patch

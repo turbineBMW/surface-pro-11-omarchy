@@ -28,6 +28,21 @@ curl -fsSL https://raw.githubusercontent.com/turbineBMW/surface-pro-11-omarchy/m
 
 The packages stay installed until Omarchy publishes newer versions.
 
+## Plugins
+
+The Power and Display panels are Omarchy's own, rebuilt with one Surface
+addition each whenever Omarchy updates them (a pacman hook applies a small
+patch to the installed built-in). If an update breaks a patch, the previous
+build stays in use and pacman prints a warning. The pen and corner plugins
+are standalone.
+
+At login, each plugin is linked into `~/.config/omarchy/plugins` and switched
+on once with `omarchy plugin enable`; a plugin you switch off or remove stays
+off. If you already run your own copy of the Power or Display panel, the
+Surface one is left off. Windows get 12 px circular corners from
+`~/.local/state/omarchy/toggles/hypr/surface-pro-11-rounding.lua`; delete it
+to go back to the theme's corners.
+
 ## What it carries
 
 Only packages that differ from Omarchy's. Each one leaves this repository
@@ -37,7 +52,8 @@ once Omarchy ships the same fixes.
 |---|---|---|---|
 | `linux-omarchy` | 7.3-1.13 | [omarchy-pkgs#1417](https://github.com/omacom/omarchy-pkgs/pull/1417) (Linux 7.3) plus four patches | Suspend no longer hard-locks when it follows a resume closely (2217, keeps the Surface EC's UART link alive); Slim Pen click-to-reconnect ([2218-2219](https://lore.kernel.org/all/20261024112435.247650-1-turbine.bmw@gmail.com/)); pen reconnect after re-pairing ([2220](https://lore.kernel.org/all/20261024004649.56724-1-turbine.bmw@gmail.com/)) |
 | `surface-pro-11-support` | 1-4.1 | [omarchy-pkgs#1528](https://github.com/omacom/omarchy-pkgs/pull/1528), then pen dock and speakers | Touchpad mode after resume, Bluetooth palm rejection, Slim Pen pairing in the keyboard dock, Windows speaker tuning |
-| `omarchy-surface-pro-11` | 1-1 | [omarchy#14390](https://github.com/omacom/omarchy/pull/14390) | The board setup a #14390 install does: OLED device tree pin, panel and keyboard before disk unlock, light sensor |
+| `omarchy-surface-pro-11` | 1-2 | [omarchy#14390](https://github.com/omacom/omarchy/pull/14390) | The board setup a #14390 install does: OLED device tree pin, panel and keyboard before disk unlock, light sensor |
+| `surface-pro-11-plugins` | 1-1 | | Omarchy shell plugins, switched on once per user: Slim Pen battery OSD, battery charge-limit toggle in the Power panel, ambient-light auto-brightness in the Display panel, rounded screen corners, and windows rounded to match the display in every theme |
 | `surface-pro-11-keyring` | 1-1 | | This repository's signing key |
 
 No firmware is in this repository. The Surface's DSP, GPU and Wi-Fi firmware

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "surface-pro-11.corners",
+  "name": "Rounded corners",
+  "version": "1.0.0",
+  "author": "turbinebmw",
+  "license": "MIT",
+  "description": "Concave rounded fills at the screen corners and under the bar.",
+  "kinds": [
+    "service"
+  ],
+  "entryPoints": {
+    "service": "Corners.qml"
+  }
+}

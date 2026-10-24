@@ -1,0 +1,11 @@
+[Unit]
+Description=Add the Surface Pro 11 shell plugins to Omarchy
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/surface-pro-11-plugins/surface-pro-11-plugins-setup
+
+[Install]
+WantedBy=graphical-session.target

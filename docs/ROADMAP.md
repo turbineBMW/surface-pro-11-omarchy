@@ -15,30 +15,22 @@ Before it goes public:
       the 4-core arm64 runner (otherwise build it here and upload by hand).
 - [ ] Install it on the SP11 through `install.sh` from the published release.
 
-## 2. Plugins on by default
+## 2. Plugins on by default (surface-pro-11-plugins)
 
-Omarchy loads third-party plugins only from `~/.config/omarchy/plugins` and
-only once they are listed in `shell.json`. New package
-`surface-pro-11-plugins`:
+Done: pen (OSD silent while docked), corners, Power + charge-limit toggle,
+Display + ambient auto-brightness, rounded windows for every theme. The
+battery clone was dropped (it added nothing to stock); brightness sync and the
+battery display redesign stay personal.
 
-- pen: Slim Pen battery OSD, silent while docked (reads
-  `/run/surface-pro-11-support/pen-docked`)
-- monitor: brightness slider and ambient-light auto-brightness
-- battery and power: low-battery warning, charge limit, power profile
-- lock: lock screen with IR face unlock; needs `facelock` (upstream
-  tyvsmith/facelock#396 merged) and the IR camera package
-- corners: rounded fills at the screen corners, matching the panel's radius
+Next:
 
-Plugins install to `/usr/share/surface-pro-11-plugins/<id>`. A user service
-links each into `~/.config/omarchy/plugins` and adds it to `shell.json` once.
-A state file records that, so a plugin the user switches off stays off. An
-existing directory with the same id (a hand-installed copy) is left alone.
-
-Upstream proposal: a system plugin directory scanned next to the user one,
-which would remove the linking step.
-
-Themes: one Hyprland drop-in rounds windows to match the display's corners
-for every theme, so no theme needs editing. Everything else stays stock.
+- lock: stock lock (with its fingerprint flow) plus IR face unlock, packaged
+  with `facelock` and the IR camera package. The personal clone predates
+  stock's fingerprint support and depends on the personal idle plugin, so
+  port only the face flow onto stock.
+- Upstream proposals: the charge-limit toggle (any UPower battery with
+  thresholds), auto-brightness (iio-sensor-proxy), and a system plugin
+  directory so packages need no per-user links.
 
 ## 3. Windows next to Omarchy
 

@@ -1,0 +1,115 @@
+#!/bin/bash
+# Put the Surface Pro 11 shell plugins and rounded corners into this user's
+# Omarchy, once.
+#
+# Runs at every login (surface-pro-11-plugins-setup.service). Each plugin is
+# linked into ~/.config/omarchy/plugins and switched on with `omarchy plugin
+# enable` the first time it is seen; the rounding file is copied once too.
+# What has been offered is recorded, so a plugin the user switches off or
+# removes, or a rounding file they delete, stays that way.
+set -euo pipefail
+
+PATH=/usr/share/omarchy/bin:$PATH
+
+shipped=(/usr/share/surface-pro-11-plugins/plugins /var/lib/surface-pro-11-plugins)
+rounding_source=/usr/share/surface-pro-11-plugins/surface-pro-11-rounding.lua
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+state_home=${XDG_STATE_HOME:-$HOME/.local/state}
+plugins_dir=$config_home/omarchy/plugins
+shell_json=$config_home/omarchy/shell.json
+offered=$state_home/surface-pro-11/offered
+
+log() { printf 'surface-pro-11-plugins: %s\n' "$*"; }
+
+mkdir -p "$plugins_dir" "${offered%/*}"
+touch "$offered"
+was_offered() { grep -qxF "$1" "$offered"; }
+mark_offered() { was_offered "$1" || echo "$1" >>"$offered"; }
+
+# Rounded windows for every theme, matching the display's corners
+if ! was_offered rounding; then
+  toggles=$state_home/omarchy/toggles/hypr
+  mkdir -p "$toggles"
+  if [[ ! -e $toggles/surface-pro-11-rounding.lua ]]; then
+    cp "$rounding_source" "$toggles/surface-pro-11-rounding.lua"
+    hyprctl reload >/dev/null 2>&1 || true
+  fi
+  mark_offered rounding
+fi
+
+# Link the plugins. A link of ours is kept pointing at the current build; a
+# directory of the user's own with the same id is left alone.
+new=()
+for root in "${shipped[@]}"; do
+  for dir in "$root"/*/; do
+    dir=${dir%/}
+    [[ -f $dir/manifest.json ]] || continue
+    id=${dir##*/}
+    link=$plugins_dir/$id
+    if [[ -L $link ]]; then
+      [[ $(readlink "$link") == "$dir" ]] || ln -sfn "$dir" "$link"
+    elif [[ ! -e $link ]] && ! was_offered "$id"; then
+      ln -s "$dir" "$link"
+      new+=("$id")
+    fi
+  done
+done
+(( ${#new[@]} )) || exit 0
+
+# Enabling goes through the running shell.
+ready=false
+for _ in $(seq 60); do
+  if omarchy-shell shell rescanPlugins >/dev/null 2>&1; then
+    ready=true
+    break
+  fi
+  sleep 1
+done
+if [[ $ready != true ]]; then
+  log "the Omarchy shell is not running; trying again at the next login"
+  exit 0
+fi
+
+# Ids switched on in shell.json: bar widgets in bar.layout, the rest in plugins[]
+enabled_ids() {
+  [[ -f $shell_json ]] || return 0
+  jq -r '
+    [(.bar.layout // {} | .[]? | .[]?), (.plugins // [])[]?]
+    | .[] | if type == "object" then .id else . end | strings
+  ' "$shell_json" 2>/dev/null
+}
+
+cloned_from() {
+  jq -r '.omarchy.clonedFrom // empty' "$1/manifest.json" 2>/dev/null
+}
+
+for id in "${new[@]}"; do
+  source=$(cloned_from "$plugins_dir/$id")
+  if [[ -n $source ]]; then
+    # The user already runs their own copy of this built-in: two of the
+    # same widget would show, so leave ours off.
+    taken=""
+    while read -r other; do
+      [[ $other == "$id" ]] && continue
+      [[ $(cloned_from "$plugins_dir/$other") == "$source" ]] && taken=$other
+    done < <(enabled_ids)
+    if [[ -n $taken ]]; then
+      log "$id: $taken already replaces $source; leaving $id off"
+      mark_offered "$id"
+      continue
+    fi
+  fi
+
+  # Rescanning is asynchronous; give the shell a moment to see the plugin.
+  for _ in $(seq 20); do
+    omarchy-plugin-list --json 2>/dev/null | jq -e --arg id "$id" 'any(.[]; .id == $id)' >/dev/null && break
+    sleep 0.25
+  done
+  if omarchy-plugin-enable "$id" >/dev/null; then
+    log "enabled $id"
+    mark_offered "$id"
+  else
+    log "could not enable $id; trying again at the next login"
+    rm -f "$plugins_dir/$id"
+  fi
+done

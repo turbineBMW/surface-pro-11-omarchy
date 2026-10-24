@@ -1,0 +1,105 @@
+#!/bin/bash
+# Build the Surface Pro 11 versions of Omarchy's built-in shell plugins.
+#
+# Each clone under /usr/share/surface-pro-11-plugins/clones is the installed
+# Omarchy plugin plus a small Surface patch, copied the way `omarchy plugin
+# clone` copies one. A pacman hook reruns this whenever Omarchy's shell
+# plugins change, so the clones follow stock Omarchy. When a patch no longer
+# applies, the previous build is kept and a warning is printed.
+set -euo pipefail
+
+share=${SURFACE_PRO11_PLUGINS_SHARE:-/usr/share/surface-pro-11-plugins}
+out_root=${SURFACE_PRO11_PLUGINS_OUT:-/var/lib/surface-pro-11-plugins}
+catalog_root=${OMARCHY_SHELL_PLUGINS:-/usr/share/omarchy/shell/plugins}
+
+warn() { printf 'surface-pro-11-plugins: %s\n' "$*" >&2; }
+
+# Directory of the built-in plugin with this id
+source_dir() {
+  local id=$1 manifest
+  while IFS= read -r manifest; do
+    if [[ $(jq -r '.id // empty' "$manifest" 2>/dev/null) == "$id" ]]; then
+      dirname "$manifest"
+      return 0
+    fi
+  done < <(find "$catalog_root" -mindepth 2 -maxdepth 3 -type f -name manifest.json | sort)
+  return 1
+}
+
+mkdir -p "$out_root"
+status=0
+for clone in "$share"/clones/*/; do
+  clone=${clone%/}
+  spec=$clone/clone.json
+  [[ -f $spec ]] || continue
+  source_id=$(jq -r .source "$spec")
+  id=$(jq -r .id "$spec")
+  name=$(jq -r .name "$spec")
+  description=$(jq -r .description "$spec")
+
+  if ! src=$(source_dir "$source_id"); then
+    warn "$id: Omarchy has no built-in $source_id any more; keeping the previous build"
+    status=1
+    continue
+  fi
+
+  stage=$(mktemp -d "$out_root/.$id.XXXXXX")
+  cp -aL "$src/." "$stage/"
+
+  failed=false
+  for file in "$clone"/*; do
+    case ${file##*/} in
+      clone.json) ;;
+      *.patch)
+        if ! patch -s -p1 --fuzz=0 -d "$stage" --no-backup-if-mismatch -r - <"$file" >/dev/null; then
+          warn "$id: ${file##*/} no longer applies to Omarchy's $source_id; keeping the previous build"
+          failed=true
+        fi
+        ;;
+      *) cp -a "$file" "$stage/" ;;
+    esac
+  done
+  if [[ $failed == true ]]; then
+    rm -rf "$stage"
+    status=1
+    continue
+  fi
+
+  jq --arg id "$id" --arg name "$name" --arg description "$description" --arg sourceId "$source_id" '
+    .id = $id |
+    .name = $name |
+    .description = $description |
+    .author = "turbinebmw" |
+    if (.barWidget | type) == "object" then
+      .barWidget.displayName = $name | .barWidget.description = $description
+    else
+      .
+    end |
+    .omarchy = ((if (.omarchy | type) == "object" then .omarchy else {} end) + { clonedFrom: $sourceId }) |
+    del(.omarchy.clonePaths)
+  ' "$stage/manifest.json" >"$stage/manifest.json.tmp"
+  mv "$stage/manifest.json.tmp" "$stage/manifest.json"
+  chmod -R a+rX "$stage"
+
+  # Swap in place: the shell may be reading the old build.
+  if [[ -d $out_root/$id ]]; then
+    mv "$out_root/$id" "$out_root/.$id.old"
+    mv "$stage" "$out_root/$id"
+    rm -rf "$out_root/.$id.old"
+  else
+    mv "$stage" "$out_root/$id"
+  fi
+done
+
+# Clones this package no longer ships
+shipped=$(for spec in "$share"/clones/*/clone.json; do [[ -f $spec ]] && jq -r .id "$spec"; done)
+for built in "$out_root"/*/; do
+  built=${built%/}
+  [[ -d $built ]] || continue
+  grep -qxF "${built##*/}" <<<"$shipped" || rm -rf "$built"
+done
+
+# A clone that could not be rebuilt keeps working from its previous build, so
+# this is a warning for pacman, not a failed transaction step.
+(( status == 0 )) || warn "see the warnings above; the Surface plugins keep their previous builds"
+exit 0

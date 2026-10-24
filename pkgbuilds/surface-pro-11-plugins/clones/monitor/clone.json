@@ -1,0 +1,6 @@
+{
+  "source": "omarchy.monitor",
+  "id": "surface-pro-11.monitor",
+  "name": "Display",
+  "description": "Brightness slider with ambient-light auto-brightness, and laptop display controls"
+}

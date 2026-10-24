@@ -1,0 +1,32 @@
+# Maintainer: Brandon Williams <turbine.bmw@gmail.com>
+pkgname=surface-pro-11-plugins
+pkgver=1
+pkgrel=1
+pkgdesc="Omarchy shell plugins for the Surface Pro 11: pen battery, charge limit, auto-brightness, rounded corners"
+arch=('any')
+url="https://github.com/turbineBMW/surface-pro-11-omarchy"
+license=('MIT')
+depends=('omarchy' 'jq' 'patch' 'brightnessctl' 'iio-sensor-proxy' 'python-gobject'
+         'upower' 'surface-pro-11-support')
+install=$pkgname.install
+# The plugins and patches are this repository's own files; makepkg's flat
+# source array cannot hold a directory tree, so package() copies them from
+# the PKGBUILD's directory.
+
+package() {
+  local share="$pkgdir/usr/share/$pkgname" lib="$pkgdir/usr/lib/$pkgname"
+
+  install -d "$share"
+  cp -r "$startdir/plugins" "$startdir/clones" "$share/"
+  install -Dm644 "$startdir/surface-pro-11-rounding.lua" "$share/surface-pro-11-rounding.lua"
+  find "$share" -type d -exec chmod 755 {} +
+  find "$share" -type f -exec chmod 644 {} +
+
+  install -Dm755 -t "$lib" "$startdir/surface-pro-11-plugins-generate" "$startdir/surface-pro-11-plugins-setup"
+  install -Dm644 "$startdir/surface-pro-11-plugins.hook" "$pkgdir/usr/share/libalpm/hooks/90-surface-pro-11-plugins.hook"
+  install -Dm644 -t "$pkgdir/usr/lib/systemd/user" "$startdir/surface-pro-11-plugins-setup.service"
+  install -d "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants"
+  ln -s ../surface-pro-11-plugins-setup.service \
+    "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/surface-pro-11-plugins-setup.service"
+  install -d "$pkgdir/var/lib/$pkgname"
+}

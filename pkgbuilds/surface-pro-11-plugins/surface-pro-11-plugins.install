@@ -1,0 +1,3 @@
+post_remove() {
+  rm -rf var/lib/surface-pro-11-plugins
+}

@@ -1,0 +1,73 @@
+--- a/Panel.qml
++++ b/Panel.qml
+@@ -219,9 +219,25 @@
+     })
+   }
+ 
++  // Ambient-light auto-brightness (iio-sensor-proxy). Lives with the widget, so it
++  // runs whether or not the panel is open.
++  AutoBrightness {
++    id: autoBrightness
++    onAdjusted: function(percent) { root.brightnessPercent = percent }
++  }
++
++  function autoBrightnessIpc(mode) {
++    var m = String(mode || "").toLowerCase()
++    if (m === "on" || m === "true" || m === "1") autoBrightness.setActive(true)
++    else if (m === "off" || m === "false" || m === "0") autoBrightness.setActive(false)
++    else if (m === "toggle") autoBrightness.setActive(!autoBrightness.active)
++    return autoBrightness.status()
++  }
++
+   ShellIpc {
+     target: "omarchy.monitor"
+ 
++    function autoBrightness(mode: string): string { return root.autoBrightnessIpc(mode) }
+     function brightness(percent: string): string { return root.brightnessIpc(percent) }
+     function state(): string { return root.stateIpc() }
+     function open() { root.open() }
+@@ -621,10 +637,43 @@
+                 font.family: root.bar.fontFamily
+                 font.pixelSize: Style.font.caption
+                 font.bold: true
+-                anchors.right: parent.right
++                anchors.right: autoLabel.left
++                anchors.rightMargin: Style.space(12)
++                anchors.verticalCenter: parent.verticalCenter
++              }
++
++              Text {
++                id: autoLabel
++                textFormat: Text.PlainText
++                text: autoBrightness.sensorLive ? "AUTO" : "AUTO (NO SENSOR)"
++                color: Qt.darker(root.bar.foreground, autoBrightness.active ? 1.0 : 1.4)
++                font.family: root.bar.fontFamily
++                font.pixelSize: Style.font.caption
++                font.bold: true
++                anchors.right: autoSwitch.left
+                 anchors.rightMargin: Style.space(6)
+                 anchors.verticalCenter: parent.verticalCenter
+               }
++
++              // Ambient-light auto-brightness. Adjusting the slider while it is
++              // on sets your preferred level for the current light.
++              ToggleSwitch {
++                id: autoSwitch
++                checked: autoBrightness.active
++                trackHeight: 16
++                cursorPad: 0
++                foreground: root.bar.foreground
++                anchors.right: parent.right
++                anchors.verticalCenter: parent.verticalCenter
++                onToggled: autoBrightness.setActive(!autoBrightness.active)
++
++                PanelToolTip {
++                  visible: autoSwitch.containsMouse
++                  text: "Auto-brightness from the ambient light sensor ("
++                        + (Math.round(autoBrightness.lux * 10) / 10) + " lux)"
++                  fontFamily: root.bar.fontFamily
++                }
++              }
+             }
+ 
+             CursorSurface {
