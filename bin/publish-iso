@@ -1,0 +1,39 @@
+#!/bin/bash
+# Publish an installer ISO as a GitHub release the Windows USB creator finds.
+#
+#   bin/publish-iso ISO [CREATOR_EXE]
+#
+# GitHub keeps release assets under 2 GiB, so the ISO goes up in 1900 MiB
+# .part-aa, .part-ab, ... pieces beside a .sha256 of the whole image. The
+# release is tagged installer-<date of the ISO>. Needs gh, logged in.
+set -euo pipefail
+
+root=$(realpath "${BASH_SOURCE[0]%/*}/..")
+iso=$(realpath "${1:?usage: bin/publish-iso ISO [CREATOR_EXE]}")
+creator=${2:-}
+date=$(basename "$iso" | grep -oE '[0-9]{4}\.[0-9]{2}\.[0-9]{2}' | head -1)
+[[ -n $date ]] || { echo "No date in $(basename "$iso")" >&2; exit 1; }
+name=omarchy-surface-pro-11-$date-aarch64.iso
+tag=installer-$date
+repo=${GH_REPO:-turbineBMW/surface-pro-11-omarchy}
+
+work=$(mktemp -d "$root/.cache/publish-iso.XXXXXX")
+trap 'rm -rf "$work"' EXIT
+
+echo "==> Checksum"
+(cd "$(dirname "$iso")" && sha256sum "$(basename "$iso")") | awk -v n="$name" '{ print $1 "  " n }' >"$work/$name.sha256"
+cat "$work/$name.sha256"
+
+echo "==> Splitting into parts"
+split --bytes=1900M "$iso" "$work/$name.part-"
+ls -la "$work"
+
+assets=("$work/$name.sha256" "$work/$name".part-*)
+[[ -z $creator ]] || assets+=("$creator")
+
+echo "==> Release $tag on $repo"
+gh release view "$tag" -R "$repo" >/dev/null 2>&1 ||
+  gh release create "$tag" -R "$repo" --title "Installer $date" --notes \
+"The Surface Pro 11 for Omarchy installer, $date. Use the USB creator (SurfaceUsbCreator.exe) from this Surface's Windows: it downloads these parts, joins and checks them, and adds the Surface's firmware to the stick. From Linux: cat the parts in order into $name, check it against $name.sha256, then bin/make-usb."
+gh release upload "$tag" -R "$repo" --clobber "${assets[@]}"
+echo "==> Published $tag"

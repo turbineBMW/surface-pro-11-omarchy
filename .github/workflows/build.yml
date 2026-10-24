@@ -3,7 +3,7 @@ name: Build and publish
 on:
   push:
     branches: [main]
-    paths: ['pkgbuilds/**', 'bin/**', '.github/workflows/build.yml']
+    paths: ['pkgbuilds/**', 'bin/**', 'creator/**', 'iso/firmware-files.txt', '.github/workflows/build.yml']
   workflow_dispatch:
   schedule:
     # Daily: has Omarchy caught up with a package carried here?
@@ -69,6 +69,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: bin/publish upload
+
+  creator:
+    # The Windows USB creator: a self-contained win-arm64 executable,
+    # cross-built on Linux.
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Publish
+        run: dotnet publish creator -c Release -r win-arm64 --self-contained true -o out/creator
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SurfaceUsbCreator-win-arm64
+          path: out/creator/SurfaceUsbCreator.exe
 
   upstream:
     if: ${{ !github.event.repository.private }}
