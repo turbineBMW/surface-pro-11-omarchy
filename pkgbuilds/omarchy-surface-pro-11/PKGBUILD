@@ -1,7 +1,7 @@
 # Maintainer: Brandon Williams <turbine.bmw@gmail.com>
 pkgname=omarchy-surface-pro-11
 pkgver=1
-pkgrel=2
+pkgrel=3
 pkgdesc="Everything the Surface Pro 11 needs on top of stock Omarchy, until it is upstream"
 arch=('any')
 url="https://github.com/turbineBMW/surface-pro-11-omarchy"
@@ -9,7 +9,7 @@ license=('MIT')
 # The kernel and surface-pro-11-support come from this repository while they
 # carry fixes Omarchy has not merged yet; the rest is Omarchy's own.
 depends=('linux-omarchy' 'surface-pro-11-support' 'surface-pro-11-sensors' 'iptsd'
-         'surface-pro-11-plugins' 'surface-pro-11-keyring' 'limine-mkinitcpio-hook')
+         'surface-pro-11-plugins' 'surface-pro-11-face' 'surface-pro-11-keyring' 'limine-mkinitcpio-hook')
 install=omarchy-surface-pro-11.install
 source=('surface-pro-11-board-setup')
 sha256sums=('4f286aff1ca0a3e4fe0142b7e1b4f2e10710b6c5c35045be802b20073393e816')

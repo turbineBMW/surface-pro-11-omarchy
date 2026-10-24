@@ -1,0 +1,4 @@
+# Surface Pro 11 (Snapdragon): when the CAMSS capture node the IR camera uses
+# appears, give it a stable name and wire its media graph.
+SUBSYSTEM=="video4linux", KERNEL=="video*", ATTR{name}=="msm_vfe1_video0", \
+  SYMLINK+="surface-pro-11-ir", TAG+="systemd", ENV{SYSTEMD_WANTS}+="surface-pro-11-ir-camera.service"

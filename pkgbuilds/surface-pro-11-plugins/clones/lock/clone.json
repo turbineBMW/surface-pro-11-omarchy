@@ -1,0 +1,6 @@
+{
+  "source": "omarchy.lock",
+  "id": "surface-pro-11.lock",
+  "name": "Lock Screen",
+  "description": "Quickshell session lock with password, fingerprint and IR face unlock (Facelock) PAM flows"
+}

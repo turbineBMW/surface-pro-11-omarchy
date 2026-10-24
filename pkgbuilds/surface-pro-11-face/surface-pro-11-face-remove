@@ -1,0 +1,13 @@
+#!/bin/bash
+# Take face unlock off the Omarchy lock screen. Enrolled faces stay; remove
+# them with `sudo facelock clear --user "$USER"`.
+set -euo pipefail
+
+pam=/etc/pam.d/omarchy-lock-face
+
+sudo facelock pam remove --service omarchy-lock-face --if-present --no-confirm
+# Only the face-only lane this setup wrote; another backend's file stays.
+if [[ -f $pam ]] && grep -q 'surface-pro-11-face-setup' "$pam"; then
+  sudo rm -f "$pam"
+fi
+echo "Face unlock is off. The lock screen asks for the password only."

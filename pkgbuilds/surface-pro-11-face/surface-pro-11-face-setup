@@ -1,0 +1,88 @@
+#!/bin/bash
+# Set up face unlock for the Omarchy lock screen with the Surface Pro 11's
+# IR camera, and enroll your face.
+#
+# Follows the PAM contract of omacom/omarchy#11612 and tyvsmith/facelock's
+# integration guide: Omarchy owns /etc/pam.d/omarchy-lock-face, a face-only
+# lane that ends in pam_deny, and facelock adds its own `sufficient` line
+# above that end. The password keeps working; it runs in its own PAM context.
+# Only the lock screen is set up. Rerunning enrolls the face again.
+set -euo pipefail
+
+graph=/usr/lib/surface-pro-11-face/surface-pro-11-ir-graph
+camera=/dev/surface-pro-11-ir
+config=/etc/facelock/config.toml
+pam=/etc/pam.d/omarchy-lock-face
+
+say() { printf '\033[1m%s\033[0m\n' "$*"; }
+die() { printf 'surface-pro-11-face-setup: %s\n' "$*" >&2; exit 1; }
+
+# Set one key in a section of facelock's TOML config, uncommenting the
+# shipped example line when there is one.
+set_config() {
+  local section=$1 key=$2 value=$3
+  sudo python3 -I - "$config" "$section" "$key" "$value" <<'PY'
+import re, sys
+path, section, key, value = sys.argv[1:]
+lines = open(path).read().split("\n")
+start = next((i for i, l in enumerate(lines) if l.strip() == f"[{section}]"), None)
+if start is None:
+    lines += ["", f"[{section}]", f"{key} = {value}"]
+else:
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("[")), len(lines))
+    pattern = re.compile(rf"^#?\s*{re.escape(key)}\s*=")
+    hit = next((i for i in range(start + 1, end) if pattern.match(lines[i])), None)
+    if hit is None:
+        lines.insert(start + 1, f"{key} = {value}")
+    else:
+        lines[hit] = f"{key} = {value}"
+open(path, "w").write("\n".join(lines))
+PY
+}
+
+tr '\0' '\n' </proc/device-tree/compatible 2>/dev/null | grep -qx 'microsoft,denali-oled' ||
+  die "this is for the Surface Pro 11 X Elite OLED"
+command -v facelock >/dev/null || die "facelock is not installed"
+
+if [[ -f $pam ]] && grep -v '^\s*#' "$pam" | grep -q 'pam_' &&
+  ! grep -qE 'pam_deny\.so|pam_facelock\.so' "$pam"; then
+  die "$pam belongs to another face backend; remove that one first"
+fi
+
+say "Waking the IR camera"
+[[ -e $camera ]] || sudo systemctl start surface-pro-11-ir-camera.service
+sudo "$graph"
+[[ -e $camera ]] || die "no IR camera at $camera"
+
+say "Setting up Facelock (models, daemon, encryption)"
+# The Surface has no TPM under Linux, so the embeddings are sealed with a
+# key file.
+sudo facelock setup --non-interactive --yes --no-pam --systemd --no-enroll \
+  --camera "$camera" --models standard --execution-provider cpu --encryption keyfile
+
+# The graph leaves the node on its mono format; facelock must not renegotiate
+# it. The IR illuminator is the PMIC flash LED.
+set_config device keep_format true
+set_config device ir_led '"/sys/class/leds/ir:flash"'
+sudo systemctl restart facelock-daemon.service
+
+say "Look at the camera to enroll your face. Stay in frame until it finishes."
+sudo facelock enroll --user "$USER" --label primary
+
+say "Adding face unlock to the lock screen"
+sudo tee "$pam" >/dev/null <<'EOF'
+#%PAM-1.0
+# Face unlock for the Omarchy lock screen (surface-pro-11-face-setup).
+# Route the Surface Pro 11's IR camera before each attempt: a libcamera client
+# such as the front camera resets the sensor's links when it starts.
+auth       optional                    pam_exec.so quiet /usr/lib/surface-pro-11-face/surface-pro-11-ir-graph
+auth       required                    pam_deny.so
+account    include                     system-local-login
+EOF
+sudo facelock pam add --service omarchy-lock-face --no-confirm
+
+if facelock is-enrolled --quiet; then
+  say "Face unlock is ready. Lock with Super + Ctrl + L and look at the camera; the password still works."
+else
+  die "enrollment did not complete; run surface-pro-11-face-setup again"
+fi

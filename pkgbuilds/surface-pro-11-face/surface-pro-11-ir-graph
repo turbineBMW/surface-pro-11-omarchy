@@ -1,0 +1,54 @@
+#!/bin/sh
+# Surface Pro 11 (Snapdragon): wire the IR camera (ST VD55G0) for plain V4L2
+# use. The front and back cameras reach libcamera through csid0 -> vfe0_rdi0,
+# so the IR sensor gets its own path, csiphy0 -> csid1 -> vfe1_rdi0, and the
+# two never compete. Sets 8-bit greyscale 644x604 end to end, so that
+# /dev/surface-pro-11-ir opens as a GREY camera (rows padded to 656 bytes), and a fixed
+# exposure suited to the IR illuminator. Run by surface-pro-11-ir-camera.service when
+# the capture node appears.
+set -eu
+
+CSID=msm_csid1
+RDI=msm_vfe1_rdi0
+NODE=msm_vfe1_video0
+FMT='Y8_1X8/644x604 field:none'
+EXPOSURE=${SP11_IR_EXPOSURE:-1200}
+
+media=
+sensor=
+for i in $(seq 1 60); do
+	for m in /dev/media*; do
+		[ -e "$m" ] || continue
+		sensor=$(media-ctl -d "$m" -p 2>/dev/null |
+			sed -n 's/.*entity [0-9]*: \(vd55g[01] [0-9]*-0060\) .*/\1/p' | head -n1)
+		if [ -n "$sensor" ]; then
+			media=$m
+			break 2
+		fi
+	done
+	sleep 0.5
+done
+[ -n "$media" ] || { echo "surface-pro-11-ir-graph: IR sensor not bound" >&2; exit 1; }
+
+# Any libcamera client resets the sensor's links and format when it starts, so
+# face unlock runs this before every attempt. When the graph is still intact,
+# leave it alone: an earlier attempt may still hold the stream.
+if media-ctl -d "$media" -p |
+	awk '/^- entity [0-9]+: msm_csiphy0 /,/^$/' |
+	grep -q "\"$CSID\":0 \[ENABLED" &&
+	media-ctl -d "$media" --get-v4l2 "\"$sensor\":0" | grep -q 'Y8_1X8/644x604'; then
+	exit 0
+fi
+
+media-ctl -d "$media" -l "\"msm_csiphy0\":1 -> \"$CSID\":0 [1]"
+media-ctl -d "$media" -l "\"$CSID\":1 -> \"$RDI\":0 [1]"
+for pad in "\"$sensor\":0" '"msm_csiphy0":0' '"msm_csiphy0":1' \
+	"\"$CSID\":0" "\"$CSID\":1" "\"$RDI\":0"; do
+	media-ctl -d "$media" -V "$pad [fmt:$FMT]"
+done
+
+video=$(media-ctl -d "$media" -e "$NODE")
+v4l2-ctl -d "$video" --set-fmt-video=width=644,height=604,pixelformat=GREY
+# The sensor's auto exposure saturates the frame under the IR torch.
+v4l2-ctl -d "$(media-ctl -d "$media" -e "$sensor")" -c "auto_exposure=1,exposure=$EXPOSURE"
+echo "surface-pro-11-ir-graph: IR camera ready on $video (GREY 644x604, exposure $EXPOSURE)"

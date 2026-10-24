@@ -1,0 +1,19 @@
+# Surface Pro 11 (Snapdragon) IR camera: ST VD55G0 behind Qualcomm CAMSS.
+#
+# surface-pro-11-ir-camera.service routes the sensor to its own CAMSS path
+# (msm_csid1 -> msm_vfe1_rdi0 -> msm_vfe1_video0, /dev/surface-pro-11-ir) as
+# GREY 644x604, clear of the csid0 path libcamera uses for the front and back
+# cameras. A platform match is authoritative for require_ir, and facelock
+# only accepts it when the node negotiates a mono format, which keep_format
+# leaves in place. The illuminator is the PMIC flash LED ir:flash.
+#
+# The modalias is the devicetree string of the X1E80100 camera subsystem; a
+# kernel whose devicetree changes the camss node's compatible strings changes
+# it, and authentication then fails closed until this is updated.
+[[quirk]]
+modalias = "of:NispT(null)Cqcom,x1e80100-camss"
+node_name = "msm_vfe1_video0"
+force_ir = true
+format_preference = "GREY"
+warmup_frames = 4
+notes = "Surface Pro 11 (Snapdragon) VD55G0 IR camera via CAMSS; PMIC flash LED illuminator"

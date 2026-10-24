@@ -1,0 +1,28 @@
+# Maintainer: Brandon Williams <turbine.bmw@gmail.com>
+# Microsoft's official ONNX Runtime build for aarch64, which Arch Linux ARM
+# does not package; facelock loads it at runtime. Same version facelock runs on x86_64.
+pkgname=onnxruntime-bin
+pkgver=1.29.0
+pkgrel=1
+pkgdesc='Cross-platform inference engine for ONNX models (official CPU build)'
+arch=('aarch64')
+url='https://github.com/microsoft/onnxruntime'
+license=('MIT')
+depends=('gcc-libs' 'glibc')
+provides=("onnxruntime=$pkgver" "onnxruntime-cpu=$pkgver" 'libonnxruntime.so=1-64')
+conflicts=('onnxruntime' 'onnxruntime-cpu')
+options=('!strip' '!debug')
+source=("https://github.com/microsoft/onnxruntime/releases/download/v$pkgver/onnxruntime-linux-aarch64-$pkgver.tgz")
+sha256sums=('e1799098ebc054b370f6176a450f158720f297818c613e5dc99b92e2ec82346f')
+
+package() {
+  cd "onnxruntime-linux-aarch64-$pkgver"
+  install -Dm755 "lib/libonnxruntime.so.$pkgver" "$pkgdir/usr/lib/libonnxruntime.so.$pkgver"
+  ln -s "libonnxruntime.so.$pkgver" "$pkgdir/usr/lib/libonnxruntime.so.1"
+  ln -s libonnxruntime.so.1 "$pkgdir/usr/lib/libonnxruntime.so"
+  install -Dm755 lib/libonnxruntime_providers_shared.so "$pkgdir/usr/lib/libonnxruntime_providers_shared.so"
+  install -d "$pkgdir/usr/include/onnxruntime"
+  install -m644 include/*.h "$pkgdir/usr/include/onnxruntime/"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 ThirdPartyNotices.txt "$pkgdir/usr/share/licenses/$pkgname/ThirdPartyNotices.txt"
+}

@@ -1,0 +1,9 @@
+[Unit]
+Description=Surface Pro 11 IR camera media graph (GREY 644x604)
+ConditionFirmware=device-tree-compatible(microsoft,denali-oled)
+After=systemd-udevd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/surface-pro-11-face/surface-pro-11-ir-graph

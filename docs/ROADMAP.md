@@ -24,10 +24,12 @@ battery display redesign stay personal.
 
 Next:
 
-- lock: stock lock (with its fingerprint flow) plus IR face unlock, packaged
-  with `facelock` and the IR camera package. The personal clone predates
-  stock's fingerprint support and depends on the personal idle plugin, so
-  port only the face flow onto stock.
+- lock: done as a clone of stock's lock (fingerprint kept) plus the face
+  flow of omarchy#11612, rebased onto today's lock with janssenjones' review
+  fixes (3 automatic scans per lock or wake, face glyph, `sessionLock`
+  reference) and a scan after resume. facelock is built from `main` until a
+  release carries #396 and #407. Lock screen only; sudo and polkit stay
+  password-only (the open product question on #11612).
 - Upstream proposals: the charge-limit toggle (any UPower battery with
   thresholds), auto-brightness (iio-sensor-proxy), and a system plugin
   directory so packages need no per-user links.
