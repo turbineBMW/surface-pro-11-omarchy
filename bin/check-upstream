@@ -30,7 +30,9 @@ done
 caught_up=0
 printf '%-28s %-14s %-14s %s\n' PACKAGE OURS OMARCHY STATE
 for dir in "$root"/pkgbuilds/*/; do
-  info=$(cd "$dir" && makepkg --printsrcinfo)
+  # makepkg wants a writable BUILDDIR even just to print .SRCINFO, and CI
+  # mounts the repository read-only.
+  info=$(cd "$dir" && BUILDDIR=$(mktemp -d) makepkg --printsrcinfo)
   epoch=$(sed -n 's/^\tepoch = //p' <<<"$info" | head -1)
   pkgver=$(sed -n 's/^\tpkgver = //p' <<<"$info" | head -1)
   pkgrel=$(sed -n 's/^\tpkgrel = //p' <<<"$info" | head -1)
