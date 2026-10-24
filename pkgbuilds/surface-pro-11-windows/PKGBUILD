@@ -1,0 +1,30 @@
+# Maintainer: Brandon Williams <turbine.bmw@gmail.com>
+pkgname=surface-pro-11-windows
+pkgver=1
+pkgrel=2
+pkgdesc="Windows next to Omarchy on the Surface Pro 11: Limine boot entry and Reboot to Windows"
+arch=('any')
+url="https://github.com/turbineBMW/surface-pro-11-omarchy"
+license=('MIT')
+depends=('efibootmgr' 'polkit' 'util-linux')
+install=$pkgname.install
+source=('windows-boot-entry' 'set-bootnext-windows' 'surface-pro-11-reboot-windows'
+        'surface-pro-11-windows-limine-entry' 'org.omarchy.surface-pro-11.reboot-to-windows.policy'
+        'surface-pro-11-reboot-windows.desktop' 'omarchy-menu.jsonc')
+sha256sums=('c25094132b9b92604f8e238bc131199b31c9dceb3ca1ff017b2bdb5e48700962'
+            'aaa83010d08d24d6ddce679c105fedc6d850ae806f0ad58d7fb42e7803f63886'
+            '3b24e0a5db1fae6bf3c4b66bbd770baaf12ec20edf804e84b60fd3df52d802a9'
+            '09b3f54b93622c25e6539e1fe3d3b3ee36d8f4b5622b7da3d5a16de2107cd8c3'
+            '0dec9f27cf5b3c1651ce83348a8322ac24dc00ea2169ff6a94f7e19225016002'
+            'f733dd218228ddb3229e136da1ab800e76ac6f2019415f4883ff62b402554a83'
+            '473ccc53919bdf444d82a28090abd41844c1cd4f5ef9d40c3f2f50d0da78e39a')
+
+package() {
+  install -Dm755 -t "$pkgdir/usr/lib/$pkgname" windows-boot-entry set-bootnext-windows
+  install -Dm755 -t "$pkgdir/usr/bin" surface-pro-11-reboot-windows surface-pro-11-windows-limine-entry
+  install -Dm644 -t "$pkgdir/usr/share/polkit-1/actions" org.omarchy.surface-pro-11.reboot-to-windows.policy
+  install -Dm644 -t "$pkgdir/usr/share/applications" surface-pro-11-reboot-windows.desktop
+  # System > Reboot to Windows; surface-pro-11-plugins adds it to each user's
+  # Omarchy menu once.
+  install -Dm644 omarchy-menu.jsonc "$pkgdir/usr/share/$pkgname/omarchy-menu.jsonc"
+}

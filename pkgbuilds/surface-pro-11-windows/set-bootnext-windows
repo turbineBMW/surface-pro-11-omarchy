@@ -1,0 +1,12 @@
+#!/bin/bash
+# Make Windows Boot Manager the firmware's next boot, once. Run as root
+# through pkexec (org.omarchy.surface-pro-11.reboot-to-windows); it takes no
+# arguments, so it can only ever pick the Windows entry.
+set -euo pipefail
+
+read -r bootnum _ < <(/usr/lib/surface-pro-11-windows/windows-boot-entry) || {
+  echo "No Windows Boot Manager entry in the firmware" >&2
+  exit 1
+}
+# One EFI variable write; Omarchy's own boot order is left as it is.
+efibootmgr --bootnext "$bootnum" >/dev/null

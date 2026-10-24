@@ -1,0 +1,8 @@
+#!/bin/bash
+# Print the firmware's Windows Boot Manager entry as "BOOTNUM PARTUUID", or
+# fail when there is none (Windows was erased, or never installed).
+set -euo pipefail
+
+efibootmgr 2>/dev/null |
+  sed -n 's/^Boot\([0-9A-Fa-f]\{4\}\)\*\{0,1\}[[:space:]]\{1,\}Windows Boot Manager[[:space:]].*HD([0-9]*,GPT,\([0-9A-Fa-f-]\{36\}\),.*\\EFI\\Microsoft\\Boot\\bootmgfw\.efi.*/\1 \2/p' |
+  head -n1 | grep .

@@ -1,0 +1,1 @@
+  "system.reboot-windows": {"icon":"󰖳","label":"Reboot to Windows","when":"surface-pro-11-reboot-windows --available","action":"surface-pro-11-reboot-windows"},

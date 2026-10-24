@@ -34,7 +34,13 @@ Next:
   thresholds), auto-brightness (iio-sensor-proxy), and a system plugin
   directory so packages need no per-user links.
 
-## 3. Windows next to Omarchy
+## 3. Windows next to Omarchy (surface-pro-11-windows)
+
+Done 2026-10-24 as described below; the Limine entry is added at install
+(limine-entry-tool --add-efi from the Windows EFI partition, mounted the way
+limine-scan does), and Reboot to Windows goes through a no-argument pkexec
+helper.
+
 
 - Limine entry for Windows. Its boot manager is on its own EFI partition
   (p1), not Omarchy's, so `FIND_BOOTLOADERS` does not find it today. Point

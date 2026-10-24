@@ -1,0 +1,26 @@
+#!/bin/bash
+# Restart into Windows once. The firmware starts Windows Boot Manager itself,
+# exactly as it does when Windows boots on its own, so BitLocker sees the
+# boot path it was sealed against; the next restart comes back to Omarchy.
+#
+#   surface-pro-11-reboot-windows              restart now
+#   surface-pro-11-reboot-windows --available  succeed if Windows is there
+set -euo pipefail
+
+helper=/usr/lib/surface-pro-11-windows/windows-boot-entry
+
+if [[ ${1:-} == --available ]]; then
+  exec "$helper" >/dev/null
+fi
+
+"$helper" >/dev/null || {
+  notify-send -u critical "Reboot to Windows" "There is no Windows Boot Manager on this Surface." 2>/dev/null || true
+  echo "There is no Windows Boot Manager entry in the firmware." >&2
+  exit 1
+}
+pkexec /usr/lib/surface-pro-11-windows/set-bootnext-windows || exit 1
+
+if command -v omarchy-system >/dev/null; then
+  exec omarchy-system reboot --execute
+fi
+exec systemctl reboot

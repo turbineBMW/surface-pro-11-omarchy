@@ -1,0 +1,22 @@
+#!/bin/bash
+# Add Windows to Omarchy's Limine boot menu, below Omarchy. Its boot manager
+# sits on its own EFI partition, which Limine's FIND_BOOTLOADERS never looks
+# at, so this does what `limine-scan` does for the firmware's Windows Boot
+# Manager entry, without asking. Does nothing when there is no Windows or the
+# menu already has it. Run as root.
+set -euo pipefail
+
+mountpoint=/run/let
+loader=EFI/Microsoft/Boot/bootmgfw.efi
+
+command -v limine-entry-tool >/dev/null || exit 0
+read -r _ partuuid < <(/usr/lib/surface-pro-11-windows/windows-boot-entry) || exit 0
+if grep -qis 'bootmgfw\.efi' /boot/limine.conf; then
+  exit 0
+fi
+
+mkdir -p "$mountpoint"
+mount -o ro "/dev/disk/by-partuuid/$partuuid" "$mountpoint"
+trap 'umount "$mountpoint" 2>/dev/null || true' EXIT
+[[ -f $mountpoint/$loader ]] || { echo "No $loader on the Windows EFI partition" >&2; exit 1; }
+limine-entry-tool --add-efi "Windows" "$mountpoint/$loader" --comment "Windows Boot Manager" --priority 20
