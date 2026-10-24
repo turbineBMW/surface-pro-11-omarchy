@@ -1,0 +1,41 @@
+From 83bfbbbe6256e1369b5d53ec11109d05410a97c2 Mon Sep 17 00:00:00 2001
+From: Brandon Williams <turbine.bmw@gmail.com>
+Date: Sat, 24 Oct 2026 11:12:14 -0400
+Subject: [PATCH] fix(camera): read the platform identity of a symlinked device
+ path
+
+read_platform_identity() looked up /sys/class/video4linux/<name> with the
+configured path's own file name, so a udev link (a SYMLINK+= stable name,
+or /dev/v4l/by-path/...) found no class directory, no modalias/node_name
+quirk matched, and require_ir refused the camera as not IR. Resolve the
+link to the /dev/videoN it points at first.
+
+Seen on the Surface Pro 11 with device.path = /dev/surface-pro-11-ir
+(-> video4, msm_vfe1_video0): "IR camera required but device is not IR",
+while /dev/video4 itself classified as IR.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ crates/facelock-camera/src/quirks.rs | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/crates/facelock-camera/src/quirks.rs b/crates/facelock-camera/src/quirks.rs
+index 99e1f76..5b69d1d 100644
+--- a/crates/facelock-camera/src/quirks.rs
++++ b/crates/facelock-camera/src/quirks.rs
+@@ -329,7 +329,11 @@ pub struct PlatformIdentity {
+ /// USB node (covered by [`read_usb_ids`]), a virtual node, or any node whose
+ /// parent device or name cannot be read.
+ pub fn read_platform_identity(device_path: &str) -> Option<PlatformIdentity> {
+-    let dev_name = device_path.strip_prefix("/dev/")?;
++    // A udev symlink (`/dev/v4l/by-path/...`, or a SYMLINK+= name such as a
++    // stable name for an IR node) has no sysfs class directory of its own;
++    // read the identity of the `/dev/videoN` it points at.
++    let resolved = std::fs::canonicalize(device_path).ok()?;
++    let dev_name = resolved.to_str()?.strip_prefix("/dev/")?;
+     platform_identity_from_sysfs(&Path::new("/sys/class/video4linux").join(dev_name))
+ }
+ 
+-- 
+2.56.0
+

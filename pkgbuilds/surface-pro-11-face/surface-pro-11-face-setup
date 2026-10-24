@@ -90,6 +90,17 @@ auth       required                    pam_deny.so
 account    include                     system-local-login
 EOF
 sudo facelock pam add --service omarchy-lock-face --no-confirm
+# facelock inserts its line above the first auth line, which is the camera
+# wiring; that has to run before the face attempt, so it goes back on top.
+sudo python3 -I - "$pam" <<'PY'
+import sys
+path = sys.argv[1]
+lines = open(path).read().split("\n")
+wiring = [l for l in lines if "pam_exec.so" in l and "surface-pro-11-ir-graph" in l]
+rest = [l for l in lines if l not in wiring]
+first_auth = next(i for i, l in enumerate(rest) if l.split()[:1] == ["auth"])
+open(path, "w").write("\n".join(rest[:first_auth] + wiring[:1] + rest[first_auth:]))
+PY
 
 if facelock is-enrolled --quiet; then
   say "Face unlock is ready. Lock with Super + Ctrl + L and look at the camera; the password still works."
