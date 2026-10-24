@@ -9,6 +9,16 @@
 # Only the lock screen is set up. Rerunning enrolls the face again.
 set -euo pipefail
 
+# With no terminal to ask on (started from a menu or another program), ask
+# through the desktop's askpass dialog instead.
+sudo() {
+  if [[ ! -t 0 && -n ${SUDO_ASKPASS:-} ]]; then
+    command sudo -A "$@"
+  else
+    command sudo "$@"
+  fi
+}
+
 graph=/usr/lib/surface-pro-11-face/surface-pro-11-ir-graph
 camera=/dev/surface-pro-11-ir
 config=/etc/facelock/config.toml

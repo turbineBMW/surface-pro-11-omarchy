@@ -1,11 +1,11 @@
 #!/bin/sh
 # Surface Pro 11 (Snapdragon): wire the IR camera (ST VD55G0) for plain V4L2
 # use. The front and back cameras reach libcamera through csid0 -> vfe0_rdi0,
-# so the IR sensor gets its own path, csiphy0 -> csid1 -> vfe1_rdi0, and the
-# two never compete. Sets 8-bit greyscale 644x604 end to end, so that
-# /dev/surface-pro-11-ir opens as a GREY camera (rows padded to 656 bytes), and a fixed
-# exposure suited to the IR illuminator. Run by surface-pro-11-ir-camera.service when
-# the capture node appears.
+# so the IR sensor gets its own path, csiphy0 -> csid1 -> vfe1_rdi0. Sets
+# 8-bit greyscale 644x604 end to end, so that /dev/surface-pro-11-ir opens as
+# a GREY camera (rows padded to 656 bytes), and a fixed exposure suited to the
+# IR illuminator. Run by surface-pro-11-ir-camera.service when the capture
+# node appears, and before each face attempt from the lock screen's PAM.
 set -eu
 
 CSID=msm_csid1
@@ -40,6 +40,17 @@ if media-ctl -d "$media" -p |
 	exit 0
 fi
 
+# libcamera enumerates the IR sensor too and leaves its PHY linked to another
+# CSID (msm_csid0 after WirePlumber starts). CAMSS allows one active link per
+# PHY output, so release the others first; one that is streaming stays busy
+# and this fails, which fails the face attempt rather than stealing the stream.
+media-ctl -d "$media" -p |
+	awk '/^- entity [0-9]+: msm_csiphy0 /,/^$/' |
+	sed -n 's/.*-> "\(msm_csid[0-9]*\)":0 \[ENABLED.*/\1/p' |
+	while read -r other; do
+		[ "$other" = "$CSID" ] && continue
+		media-ctl -d "$media" -l "\"msm_csiphy0\":1 -> \"$other\":0 [0]"
+	done
 media-ctl -d "$media" -l "\"msm_csiphy0\":1 -> \"$CSID\":0 [1]"
 media-ctl -d "$media" -l "\"$CSID\":1 -> \"$RDI\":0 [1]"
 for pad in "\"$sensor\":0" '"msm_csiphy0":0' '"msm_csiphy0":1' \

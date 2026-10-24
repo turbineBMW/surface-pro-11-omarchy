@@ -3,6 +3,16 @@
 # them with `sudo facelock clear --user "$USER"`.
 set -euo pipefail
 
+# With no terminal to ask on (started from a menu or another program), ask
+# through the desktop's askpass dialog instead.
+sudo() {
+  if [[ ! -t 0 && -n ${SUDO_ASKPASS:-} ]]; then
+    command sudo -A "$@"
+  else
+    command sudo "$@"
+  fi
+}
+
 pam=/etc/pam.d/omarchy-lock-face
 
 sudo facelock pam remove --service omarchy-lock-face --if-present --no-confirm
