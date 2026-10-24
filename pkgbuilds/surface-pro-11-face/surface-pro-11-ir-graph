@@ -30,13 +30,15 @@ for i in $(seq 1 60); do
 done
 [ -n "$media" ] || { echo "surface-pro-11-ir-graph: IR sensor not bound" >&2; exit 1; }
 
-# Any libcamera client resets the sensor's links and format when it starts, so
-# face unlock runs this before every attempt. When the graph is still intact,
-# leave it alone: an earlier attempt may still hold the stream.
+# Any libcamera client resets the sensor's links and format when it starts,
+# and a capture client may renegotiate the node, so face unlock runs this
+# before every attempt. When the graph and node are still intact, leave them
+# alone: an earlier attempt may still hold the stream.
 if media-ctl -d "$media" -p |
 	awk '/^- entity [0-9]+: msm_csiphy0 /,/^$/' |
 	grep -q "\"$CSID\":0 \[ENABLED" &&
-	media-ctl -d "$media" --get-v4l2 "\"$sensor\":0" | grep -q 'Y8_1X8/644x604'; then
+	media-ctl -d "$media" --get-v4l2 "\"$sensor\":0" | grep -q 'Y8_1X8/644x604' &&
+	v4l2-ctl -d "$(media-ctl -d "$media" -e "$NODE")" --get-fmt-video | grep -q 'Width/Height *: *644/604'; then
 	exit 0
 fi
 

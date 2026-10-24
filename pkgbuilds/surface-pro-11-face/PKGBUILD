@@ -1,7 +1,7 @@
 # Maintainer: Brandon Williams <turbine.bmw@gmail.com>
 pkgname=surface-pro-11-face
 pkgver=1
-pkgrel=2
+pkgrel=3
 pkgdesc="Face unlock for the Surface Pro 11's IR camera: camera wiring, facelock quirk and setup"
 arch=('any')
 url="https://github.com/turbineBMW/surface-pro-11-omarchy"
@@ -11,7 +11,7 @@ replaces=('surface-pro-11-ir')
 conflicts=('surface-pro-11-ir')
 source=('surface-pro-11-ir-graph' '70-surface-pro-11-ir.rules' 'surface-pro-11-ir-camera.service'
         '60-surface-pro-11-ir.toml' 'surface-pro-11-face-setup' 'surface-pro-11-face-remove')
-sha256sums=('d07471b07a4c0f36da2746758e2bd0f4bc32aae7b05fb89b0b4fdf86a7f8b670'
+sha256sums=('25846f1d8ab1475a4ff6a877b143664ccabad9ed0807712bdb2c126817df64f0'
             '185bcafe0fb9e1a7cba9a74449b935e5e851471baee66d40427a1e3d064012ed'
             '66e75ba41cef67f4f06eb7921aabb32c2918dd24b56ce618bad5ffdbdb0a39ed'
             '87c070138f832b7a9fb371eb7b029a1fad523f0234a753af7892257881ad2eb2'
