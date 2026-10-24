@@ -1,0 +1,2 @@
+  "setup.security.face": {"icon":"󰩉","label":"Face Unlock","description":"IR camera face unlock for the lock screen","action":"omarchy-launch-floating-terminal-with-presentation surface-pro-11-face-setup"},
+  "remove.security.face": {"icon":"󰩉","label":"Face Unlock","when":"grep -qs surface-pro-11-face-setup /etc/pam.d/omarchy-lock-face","action":"omarchy-launch-floating-terminal-with-presentation surface-pro-11-face-remove"},

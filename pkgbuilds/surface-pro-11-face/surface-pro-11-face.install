@@ -1,4 +1,5 @@
 post_install() {
-  echo "==> Set up face unlock with: surface-pro-11-face-setup"
+  echo "==> Set up face unlock from the Omarchy menu (Setup > Security > Face Unlock),"
+  echo "    the Face Unlock app, or: surface-pro-11-face-setup"
   echo "    (not 'facelock setup': the Surface's IR camera needs settings it does not make)"
 }

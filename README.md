@@ -30,9 +30,10 @@ The packages stay installed until Omarchy publishes newer versions.
 
 ## Face unlock
 
-Run `surface-pro-11-face-setup` once and look at the camera. It sets up
+Open Setup > Security > Face Unlock in the Omarchy menu (or the Face Unlock
+app, or run `surface-pro-11-face-setup`) and look at the camera. It sets up
 facelock for the IR camera and adds face unlock to the lock screen only;
-`surface-pro-11-face-remove` takes it off again. The lock starts a scan when
+Remove > Security > Face Unlock takes it off again. The lock starts a scan when
 it locks, when you touch the keyboard or mouse, and after a resume, at most
 three times each, and an empty Enter scans once more. The password always
 works. The lock screen's face flow follows
@@ -64,9 +65,9 @@ once Omarchy ships the same fixes.
 | `linux-omarchy` | 7.3-1.13 | [omarchy-pkgs#1417](https://github.com/omacom/omarchy-pkgs/pull/1417) (Linux 7.3) plus four patches | Suspend no longer hard-locks when it follows a resume closely (2217, keeps the Surface EC's UART link alive); Slim Pen click-to-reconnect ([2218-2219](https://lore.kernel.org/all/20261024112435.247650-1-turbine.bmw@gmail.com/)); pen reconnect after re-pairing ([2220](https://lore.kernel.org/all/20261024004649.56724-1-turbine.bmw@gmail.com/)) |
 | `surface-pro-11-support` | 1-4.1 | [omarchy-pkgs#1528](https://github.com/omacom/omarchy-pkgs/pull/1528), then pen dock and speakers | Touchpad mode after resume, Bluetooth palm rejection, Slim Pen pairing in the keyboard dock, Windows speaker tuning |
 | `omarchy-surface-pro-11` | 1-3 | [omarchy#14390](https://github.com/omacom/omarchy/pull/14390) | The board setup a #14390 install does: OLED device tree pin, panel and keyboard before disk unlock, light sensor |
-| `surface-pro-11-plugins` | 1-3 | | Omarchy shell plugins, switched on once per user: lock screen with face unlock, Slim Pen battery OSD, battery charge-limit toggle in the Power panel, ambient-light auto-brightness in the Display panel, rounded screen corners, and windows rounded to match the display in every theme |
-| `surface-pro-11-face` | 1-1 | | Face unlock with the IR camera: camera wiring, facelock quirk, `surface-pro-11-face-setup` |
-| `facelock` | 0.2.1.r153 | [tyvsmith/facelock](https://github.com/tyvsmith/facelock) `main` (no release has IR cameras behind CAMSS yet) | Face authentication for PAM |
+| `surface-pro-11-plugins` | 1-4 | | Omarchy shell plugins, switched on once per user: lock screen with face unlock, Slim Pen battery OSD, battery charge-limit toggle in the Power panel, ambient-light auto-brightness in the Display panel, rounded screen corners, and windows rounded to match the display in every theme |
+| `surface-pro-11-face` | 1-5 | | Face unlock with the IR camera: camera wiring, facelock quirk, `surface-pro-11-face-setup` |
+| `facelock` | 0.2.1.r153-2 | [tyvsmith/facelock](https://github.com/tyvsmith/facelock) `main` (no release has IR cameras behind CAMSS yet) | Face authentication for PAM |
 | `onnxruntime-bin` | 1.29.0 | Arch Linux ARM has no onnxruntime | Microsoft's aarch64 build, for facelock |
 | `surface-pro-11-keyring` | 1-1 | | This repository's signing key |
 

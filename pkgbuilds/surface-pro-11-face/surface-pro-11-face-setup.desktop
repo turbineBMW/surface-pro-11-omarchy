@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Face Unlock
+GenericName=Face Unlock Setup
+Comment=Unlock the lock screen by looking at the Surface Pro 11's IR camera
+Exec=omarchy-launch-floating-terminal-with-presentation surface-pro-11-face-setup
+Icon=system-lock-screen
+Terminal=false
+Categories=Settings;Security;
+Keywords=face;facelock;IR;camera;unlock;biometric;enroll;

@@ -37,6 +37,37 @@ if ! was_offered rounding; then
   mark_offered rounding
 fi
 
+# Omarchy menu rows other Surface packages ship (Setup > Security > Face
+# Unlock), added to the user's menu extension once. Rows whose ids the user
+# already has are left to them.
+menu_file=$config_home/omarchy/extensions/omarchy-menu.jsonc
+for rows in /usr/share/surface-pro-11-*/omarchy-menu.jsonc; do
+  [[ -f $rows ]] || continue
+  key=menu:${rows#/usr/share/}
+  was_offered "$key" && continue
+  python3 -I - "$menu_file" "$rows" <<'PY' && mark_offered "$key"
+import os, re, sys
+menu, rows_path = sys.argv[1:]
+rows = open(rows_path).read().rstrip() + "\n"
+ids = re.findall(r'^\s*"([^"]+)"\s*:', rows, re.M)
+text = open(menu).read() if os.path.exists(menu) else "{\n}\n"
+if any(re.search(r'^\s*"%s"\s*:' % re.escape(i), text, re.M) for i in ids):
+    sys.exit(0)
+end = text.rindex("}")
+lines = text[:end].rstrip().split("\n")
+last = len(lines) - 1
+while last >= 0 and (not lines[last].strip() or lines[last].strip().startswith("//")):
+    last -= 1
+if last >= 0 and not lines[last].rstrip().endswith((",", "{")):
+    lines[last] = lines[last].rstrip() + ","
+block = "  // Added once by surface-pro-11-plugins; delete these rows to drop them.\n" + rows
+os.makedirs(os.path.dirname(menu), exist_ok=True)
+with open(menu + ".tmp", "w") as out:
+    out.write("\n".join(lines) + "\n" + block + text[end:])
+os.replace(menu + ".tmp", menu)
+PY
+done
+
 # Link the plugins. A link of ours is kept pointing at the current build; a
 # directory of the user's own with the same id is left alone.
 new=()
