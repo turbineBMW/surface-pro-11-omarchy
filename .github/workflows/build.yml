@@ -62,7 +62,12 @@ jobs:
                 echo "::warning::No SIGNING_KEY secret: building unsigned, nothing will be published"
               fi
               cd /repo && bin/build'
-          sudo chown -R "$(id -u):$(id -g)" .
+
+      # The container builds as its own user; give the checkout back even
+      # when the build fails, or the job's cleanup cannot touch .git.
+      - name: Give the checkout back
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" .
 
       - name: Publish
         if: vars.SIGN_KEY != ''

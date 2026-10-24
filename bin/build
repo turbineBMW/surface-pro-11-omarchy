@@ -80,6 +80,13 @@ for base in "${bases[@]}"; do
     fi
   fi
 
+  # Sources signed by keys the package names (validpgpkeys), shipped beside
+  # it as Arch's keys/pgp convention has them: makepkg checks against the
+  # builder's keyring, which a fresh container does not have them in.
+  if compgen -G "$dir/keys/pgp/*.asc" >/dev/null; then
+    gpg --batch --quiet --import "$dir"/keys/pgp/*.asc
+  fi
+
   before=$(mktemp)
   ls -1 "$out" >"$before"
   (cd "$dir" && PKGDEST=$out makepkg --nodeps --cleanbuild --clean --force ${SIGN_KEY:+--sign})
