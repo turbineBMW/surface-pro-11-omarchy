@@ -82,7 +82,7 @@
 +          spacing: Style.space(10)
 +
 +          PanelSectionHeader {
-+            text: "Charging"
++            text: "CHARGING"
 +            foreground: root.bar.foreground
 +            fontFamily: root.bar.fontFamily
 +          }
