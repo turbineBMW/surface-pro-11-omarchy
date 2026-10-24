@@ -85,6 +85,14 @@ No firmware is in this repository. The Surface's DSP, GPU and Wi-Fi firmware
 belong to Microsoft and Qualcomm and come from your own Windows install
 through Omarchy's `qcom-firmware-extract`.
 
+## Installer
+
+`bin/build-iso` builds Omarchy's aarch64 installer with these packages in
+it, and `sudo bin/make-usb ISO DEVICE --firmware FILEREPOSITORY` writes it to
+a stick with an OMARCHY_FW partition holding the Surface's firmware from a
+Windows driver store, so the installer never reads the (possibly
+BitLocker-encrypted) Windows partition. The image itself carries no firmware.
+
 ## Versions
 
 A carried package uses the pkgrel Omarchy will give the change, plus `.N`:

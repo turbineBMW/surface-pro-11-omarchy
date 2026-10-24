@@ -53,10 +53,20 @@ helper.
 
 ## 4. Installer ISO
 
-Omarchy's Dragon ISO with this repository added, firmware-free. The
-installer reads firmware and sensor configuration from the stick's `SP11FW`
-partition the Windows creator fills, falling back to the Windows partition.
-Both install modes stay: whole disk, or free space next to Windows.
+Built 2026-10-24 with `bin/build-iso`: omarchy-iso at iso/OMARCHY_ISO_COMMIT
+plus iso/patches (firmware from an OMARCHY_FW partition; the board's add-on
+package from the image's bundle), every package here as its [platform]
+bundle. `bin/make-usb` writes it to a stick and adds OMARCHY_FW with what
+iso/firmware-files.txt names. Checked on loop devices, not yet on a stick:
+
+- [ ] Boot the stick on the Surface Pro 11; live session up on 7.3-1.13.
+- [ ] Fresh install (erases this machine's Omarchy): firmware from
+      OMARCHY_FW, omarchy-surface-pro-11 installed, first boot adds the
+      repository, sensors, Windows entry; plugins and menu rows at login.
+- [ ] Note every discrepancy and fix it here.
+
+Upstream candidate: the OMARCHY_FW patch is not Surface-specific; every
+Snapdragon laptop with BitLocker on hits the same wall.
 
 ## 5. Windows USB creator
 
