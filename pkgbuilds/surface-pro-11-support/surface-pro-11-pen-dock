@@ -179,13 +179,18 @@ def bond(fd, report, target):
 
 def pen_docked(fd, report, host_le):
     target = pen_address(report, host_le)
+    # A pen paired by hand (surface-pro-11-pen-pair) is bonded under the
+    # address it reports, not the per-host one it pairs from when docked.
+    # Either bond counts, as long as the pen still knows this host.
+    base = bytes(report[5:11])[::-1].hex(':').upper()
     known_host = bool(report[11] & KNOWN_HOST)
-    paired = 'Paired: yes' in run('bluetoothctl', 'info', target)
+    paired = [a for a in dict.fromkeys((target, base))
+              if 'Paired: yes' in run('bluetoothctl', 'info', a)]
     if paired and known_host:
         return
-    if paired:
-        log(f'pen {target} no longer knows this host, pairing it again')
-        run('bluetoothctl', 'remove', target)
+    for addr in paired:
+        log(f'pen {addr} no longer knows this host, pairing it again')
+        run('bluetoothctl', 'remove', addr)
     if bond(fd, report, target):
         log(f'paired the pen {target}')
     else:

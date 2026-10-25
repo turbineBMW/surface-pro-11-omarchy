@@ -1,0 +1,180 @@
+#!/usr/bin/python3 -I
+
+# Pair a Surface Slim Pen over Bluetooth by hand: you put the pen into pairing
+# mode (hold its top button about 7 seconds, until the light blinks), this
+# finds it, pairs it, trusts it and shows its battery. The same path Windows
+# offers in Bluetooth settings.
+#
+# A pen docked in the Flex Keyboard is paired on its own by
+# surface-pro-11-pen-dock; this is for a pen without a dock, or when the
+# dock does not report it. Pairing is Just Works: the pen has no display and
+# no input, so there is nothing to confirm. Omarchy keeps the adapter
+# non-pairable; it is pairable only while this runs.
+
+import queue
+import re
+import subprocess
+import sys
+import threading
+import time
+
+WAIT = 90            # seconds to look for a pen in pairing mode
+PAIR_WAIT = 45       # seconds for the pairing itself
+PEN = re.compile(r'Device ([0-9A-F]{2}(?::[0-9A-F]{2}){5}) (.*Slim Pen.*)')
+ANSI = re.compile(r'\x1b\[[0-9;]*[A-Za-z]|\r')
+
+
+def say(msg):
+    print(f'\033[1m{msg}\033[0m', flush=True)
+
+
+def run(*cmd):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=20).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return ''
+
+
+class Bluetoothctl:
+    """One interactive bluetoothctl, read line by line from a thread."""
+
+    def __init__(self):
+        self.p = subprocess.Popen(['bluetoothctl'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                  stderr=subprocess.STDOUT, text=True, bufsize=1)
+        self.lines = queue.Queue()
+        threading.Thread(target=self._read, daemon=True).start()
+
+    def _read(self):
+        for line in self.p.stdout:
+            line = ANSI.sub('', line)
+            # The prompt comes glued to the next line when input is a pipe.
+            line = re.sub(r'^(\[[^\]]*\]# ?)+', '', line).strip()
+            if line:
+                self.lines.put(line)
+
+    def send(self, cmd):
+        try:
+            self.p.stdin.write(cmd + '\n')
+            self.p.stdin.flush()
+        except (OSError, ValueError):
+            pass
+
+    def next_line(self, timeout):
+        try:
+            return self.lines.get(timeout=timeout)
+        except queue.Empty:
+            return None
+
+    def close(self):
+        self.send('scan off')
+        self.send('quit')
+        try:
+            self.p.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.p.kill()
+
+
+def forget_pens():
+    for line in run('bluetoothctl', 'devices').splitlines():
+        m = PEN.search(line)
+        if m:
+            run('bluetoothctl', 'remove', m.group(1))
+
+
+def battery(addr):
+    for _ in range(10):
+        m = re.search(r'Battery Percentage: 0x[0-9a-f]+ \((\d+)\)', run('bluetoothctl', 'info', addr))
+        if m:
+            return int(m.group(1))
+        time.sleep(1)
+    return None
+
+
+def main():
+    say('Pair a Surface Slim Pen')
+    print()
+    show = run('bluetoothctl', 'show')
+    if 'Powered: yes' not in show:
+        run('bluetoothctl', 'power', 'on')
+        show = run('bluetoothctl', 'show')
+        if 'Powered: yes' not in show:
+            say('Bluetooth is off and could not be turned on.')
+            return 1
+    pairable = 'Pairable: yes' in show
+    # A pen remembered from before is forgotten first, so what turns up now is
+    # the pen in your hand, and a dead old bond never gets in the way.
+    forget_pens()
+
+    print("Hold the pen's top button for about 7 seconds, until its light blinks.")
+    print()
+    ctl = Bluetoothctl()
+    addr = name = None
+    try:
+        if not pairable:
+            run('bluetoothctl', 'pairable', 'on')
+        ctl.send('agent NoInputNoOutput')
+        ctl.send('default-agent')
+        ctl.send('scan le')
+        start = time.monotonic()
+        shown = -1
+        while time.monotonic() - start < WAIT:
+            line = ctl.next_line(0.5)
+            if line:
+                m = PEN.search(line)
+                if m and ('[NEW]' in line or '[CHG]' in line):
+                    addr, name = m.group(1), m.group(2).strip()
+                    break
+            left = WAIT - int(time.monotonic() - start)
+            if left != shown:
+                print(f'\r  Looking for the pen... {left:2d} s left ', end='', flush=True)
+                shown = left
+        print('\r' + ' ' * 40 + '\r', end='')
+        if not addr:
+            say('No pen found.')
+            print('Hold the top button longer, until the light blinks, then run Pair Pen again.')
+            print('A pen that is paired with another computer nearby may have connected there instead.')
+            return 1
+
+        print(f'Found {name} ({addr}), pairing...')
+        ctl.send('scan off')
+        time.sleep(1)
+        ctl.send(f'pair {addr}')
+        start = time.monotonic()
+        paired = False
+        reason = 'the pen did not answer'
+        while time.monotonic() - start < PAIR_WAIT:
+            line = ctl.next_line(0.5)
+            if not line:
+                continue
+            if '(yes/no)' in line:
+                ctl.send('yes')
+            elif 'Pairing successful' in line:
+                paired = True
+                break
+            elif 'Failed to pair' in line or 'AuthenticationFailed' in line or 'AuthenticationCanceled' in line:
+                reason = line.split(':', 1)[-1].strip() or line
+                break
+        if not paired:
+            say(f'Pairing failed: {reason}.')
+            print('Put the pen into pairing mode again (hold the top button until it blinks) and retry.')
+            run('bluetoothctl', 'remove', addr)
+            return 1
+        run('bluetoothctl', 'trust', addr)
+    finally:
+        ctl.close()
+        if not pairable:
+            run('bluetoothctl', 'pairable', 'off')
+
+    level = battery(addr)
+    say(f'Paired {name}.')
+    if level is not None:
+        print(f'Battery {level} %.')
+    print('It connects on its own when you pick it up or click its button.')
+    return 0
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)

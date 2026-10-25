@@ -1,0 +1,3 @@
+  "setup.input.pen": {"icon":"󰏫","label":"Pair Pen","description":"Pair a Surface Slim Pen over Bluetooth: hold its top button until it blinks","action":"omarchy-launch-floating-terminal-with-presentation surface-pro-11-pen-pair"},
+  "remove.input": {"icon":"󰌌","label":"Input"},
+  "remove.input.pen": {"icon":"󰏫","label":"Pen","description":"Forget the paired Surface Slim Pen","when":"bluetoothctl devices Paired 2>/dev/null | grep -q 'Slim Pen'","action":"omarchy-launch-floating-terminal-with-presentation surface-pro-11-pen-forget"},
