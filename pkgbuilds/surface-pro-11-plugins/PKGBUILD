@@ -1,7 +1,7 @@
 # Maintainer: Brandon Williams <turbine.bmw@gmail.com>
 pkgname=surface-pro-11-plugins
 pkgver=1
-pkgrel=8
+pkgrel=9
 pkgdesc="Omarchy shell plugins for the Surface Pro 11: pen battery, charge limit, auto-brightness, rounded corners, first-login offers"
 arch=('any')
 url="https://github.com/turbineBMW/surface-pro-11-omarchy"
