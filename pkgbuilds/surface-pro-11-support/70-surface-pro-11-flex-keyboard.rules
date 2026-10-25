@@ -9,8 +9,3 @@ ACTION=="add", SUBSYSTEM=="hid", ENV{HID_NAME}=="*045E:0C8B*", \
 # Detached: connect it over Bluetooth.
 ACTION=="remove", SUBSYSTEM=="hid", ENV{HID_NAME}=="*045E:0C8B*", \
   RUN+="/usr/bin/systemctl --no-block start surface-pro-11-flex-reconnect.service"
-
-# Pen dock (045E:0C8E), there while the keyboard is attached: pair the Slim Pen
-# whenever it is docked.
-ACTION=="add", SUBSYSTEM=="hid", ENV{HID_NAME}=="*045E:0C8E*", \
-  RUN+="/usr/bin/systemctl --no-block start surface-pro-11-pen-dock.service"

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Offer the Surface Pro 11 extras at the first login after an install, as
-# notifications like Omarchy's own first-login toasts: set up face unlock,
-# pair the pen. Each is offered once. One that is already set up is never
+# notifications like Omarchy's own first-login toasts: set up face unlock.
+# Each is offered once. One that is already set up is never
 # offered; one whose package is not installed is offered once it is.
 #
 # Runs at every login (surface-pro-11-first-login.service) and exits at once
@@ -25,13 +25,6 @@ if ! was_offered toast-face && command -v surface-pro-11-face-setup >/dev/null; 
     pending+=(face)
   fi
 fi
-if ! was_offered toast-pen && command -v surface-pro-11-pen-pair >/dev/null; then
-  if bluetoothctl devices Paired 2>/dev/null | grep -q 'Slim Pen'; then
-    mark_offered toast-pen
-  else
-    pending+=(pen)
-  fi
-fi
 (( ${#pending[@]} )) || exit 0
 
 # The shell has to be up to take a toast, and Omarchy's own first-login toasts
@@ -49,12 +42,6 @@ for what in "${pending[@]}"; do
         $'Unlock the screen with the IR camera.\nClick to set it up.' \
         --exec omarchy-launch-floating-terminal-with-presentation surface-pro-11-face-setup &&
         mark_offered toast-face
-      ;;
-    pen)
-      omarchy-notification-send -u critical -g 󰏫 "Pair Pen" \
-        $'Hold the pen\'s top button 7 s until it blinks,\nthen click here to pair it.' \
-        --exec omarchy-launch-floating-terminal-with-presentation surface-pro-11-pen-pair &&
-        mark_offered toast-pen
       ;;
   esac
 done

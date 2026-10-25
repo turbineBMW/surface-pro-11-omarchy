@@ -5,9 +5,7 @@
 # finds it, pairs it, trusts it and shows its battery. The same path Windows
 # offers in Bluetooth settings.
 #
-# A pen docked in the Flex Keyboard is paired on its own by
-# surface-pro-11-pen-dock; this is for a pen without a dock, or when the
-# dock does not report it. Pairing is Just Works: the pen has no display and
+# Pairing is Just Works: the pen has no display and
 # no input, so there is nothing to confirm. Omarchy keeps the adapter
 # non-pairable; it is pairable only while this runs.
 

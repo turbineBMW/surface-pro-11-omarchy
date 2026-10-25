@@ -22,7 +22,7 @@
     {
       "name": "surface-pro-11-support",
       "replaces": true,
-      "description": "Speakers tuned the way Windows tunes them, the cameras, sensors and battery charge limit, the Flex Keyboard, and the Slim Pen's docked state."
+      "description": "Speakers tuned the way Windows tunes them, the cameras, sensors and battery charge limit, the Flex Keyboard, and Slim Pen pairing."
     },
     {
       "name": "omarchy-surface-pro-11",
@@ -32,7 +32,7 @@
     {
       "name": "surface-pro-11-plugins",
       "replaces": false,
-      "description": "Omarchy shell plugins: the Slim Pen's OSD, the monitor with automatic brightness, the battery charge limit, the lock screen with face unlock, and rounded corners for the Surface's rounded screen."
+      "description": "Omarchy shell plugins: the monitor with automatic brightness, the battery charge limit, the lock screen with face unlock, and rounded corners for the Surface's rounded screen."
     },
     {
       "name": "surface-pro-11-face",

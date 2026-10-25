@@ -1,6 +1,5 @@
 #!/bin/bash
-# Forget the paired Surface Slim Pen(s). Dock the pen or run Pair Pen to
-# pair again.
+# Forget the paired Surface Slim Pen(s). Run Pair Pen to pair again.
 set -u
 found=0
 while read -r _ addr name; do

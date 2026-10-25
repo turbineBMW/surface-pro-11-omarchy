@@ -1,9 +1,0 @@
-[Unit]
-Description=Pair the Surface Slim Pen when it is docked in the Flex Keyboard
-ConditionFirmware=device-tree-compatible(microsoft,denali-oled)
-Wants=bluetooth.service
-After=bluetooth.service
-
-[Service]
-Type=simple
-ExecStart=/usr/lib/surface-pro-11-support/surface-pro-11-pen-dock

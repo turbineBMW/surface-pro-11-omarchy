@@ -5,7 +5,7 @@
 
 pkgname=surface-pro-11-support
 pkgver=1
-pkgrel=4.5
+pkgrel=4.6
 pkgdesc="Hardware support for the Microsoft Surface Pro 11 (Snapdragon X Elite) not yet carried upstream"
 arch=('aarch64')
 # Qualcomm-only: the pacman platform guard keeps it off other hardware.
@@ -39,8 +39,6 @@ source=(
   'surface-pro-11-flex-reconnect'
   'surface-pro-11-flex-autopair.service'
   'surface-pro-11-flex-reconnect.service'
-  'surface-pro-11-pen-dock'
-  'surface-pro-11-pen-dock.service'
   'surface-pro-11-pen-pair'
   'surface-pro-11-pen-forget'
   'omarchy-menu.jsonc'
@@ -69,15 +67,13 @@ sha256sums=('f571d0667e48da9967db20770beff426a5e0372836a8a2bb66cd806d43b0f580'
             'a71714ba944ea62a9e23e9fdcf199759cee5f92b9b8c0fce1ff288095e056e19'
             '0ef274d4c03746fa9e8752a6e1e65d4c6bc90858ea4fa794e1e25e523917324f'
             'd7c5ebe1787670d0ee25981c421b0193182cba3f9b6afe20c7b09beb646de9c2'
-            'cf963155026b4e834d5194c83d13bec386a3c6cb2738e93e34aa64adef2949d9'
-            'ef3f2ad8460ee66db95e07822e831ef37ef6ba685a01d5770e0f67efe67c7dbe'
-            '9f779b6cc541c3942b741415a26c3f53d4314241381f90aced276196c666f280'
-            '73eebfbf5727fb8e3f69c6246e897e23b81d73e5201a6071f4974ac49fc7cd6c'
+            'c34139d392636f6adc5fc6d7fb3a5c53d1b65c3562e8d8d7a81fd32526b4be1d'
+            'd28fa651e9a40e94b85e69aeab0ab95074ea60f36091273a1fb2516cb9fcbada'
             '3b80b8aacee78343a99abf2a8dad34382236cf8f33d2d7f9cdefe1e8b546b602'
             '5a5574b1ebe3691734a411e0ae8f79e0a7581cbf13c8769775fc0b08aaa3fea5'
-            'cebd7c6179bf86f3df9da20b143b70594f8c9223963ac46c7dd14f08352b7d0f'
+            '16117bf87eff67463962e1de50799e1dd05baa8b39746cf1b93f2f445bb7c84f'
             'eb703cfc8e06210e1340c3272c0da6a0426f525fa0f49935b69b8b9e1546e7f4'
-            '3f438f2847f0c3af6b739fddefb366e2bd1109ef94e53bda579836a7070142d0'
+            '99accd54b37b25ef5533e905a328c80af9033817b335cc9eef84dcc0bacff781'
             'f74f925ccd6fc2f4b9bdf7682f6927a64809c8668e8232997c541cc6f992787b')
 
 # The Surface reports generic WCN7850 identifiers (subsystem 17cb:1107,
@@ -139,14 +135,12 @@ package() {
   install -Dm755 surface-pro-11-flex-pair "$pkgdir/usr/bin/surface-pro-11-flex-pair"
   install -Dm755 surface-pro-11-flex-autopair "$pkgdir/usr/lib/$pkgname/surface-pro-11-flex-autopair"
   install -Dm755 surface-pro-11-flex-reconnect "$pkgdir/usr/lib/$pkgname/surface-pro-11-flex-reconnect"
-  install -Dm755 surface-pro-11-pen-dock "$pkgdir/usr/lib/$pkgname/surface-pro-11-pen-dock"
   install -Dm755 surface-pro-11-pen-pair "$pkgdir/usr/bin/surface-pro-11-pen-pair"
   install -Dm755 surface-pro-11-pen-forget "$pkgdir/usr/bin/surface-pro-11-pen-forget"
   # Menu rows (Setup > Input > Pair Pen, Remove > Input > Pen); surface-pro-11-plugins adds them to the user's menu
   install -Dm644 omarchy-menu.jsonc "$pkgdir/usr/share/$pkgname/omarchy-menu.jsonc"
   install -Dm644 -t "$pkgdir/usr/lib/systemd/system" \
-    surface-pro-11-flex-autopair.service surface-pro-11-flex-reconnect.service \
-    surface-pro-11-pen-dock.service
+    surface-pro-11-flex-autopair.service surface-pro-11-flex-reconnect.service
   install -Dm644 70-surface-pro-11-flex-keyboard.rules \
     "$pkgdir/usr/lib/udev/rules.d/70-surface-pro-11-flex-keyboard.rules"
   install -Dm644 50-surface-pro-11-flex-keyboard.quirks \
