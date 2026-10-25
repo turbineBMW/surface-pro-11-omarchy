@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Reboot to Windows
+Name=Boot to Windows
 Comment=Restart into Windows once; the next restart comes back to Omarchy
 Exec=surface-pro-11-reboot-windows
 Icon=system-reboot

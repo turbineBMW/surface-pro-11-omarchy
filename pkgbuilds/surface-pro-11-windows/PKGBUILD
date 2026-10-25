@@ -1,8 +1,8 @@
 # Maintainer: Brandon Williams <turbine.bmw@gmail.com>
 pkgname=surface-pro-11-windows
 pkgver=1
-pkgrel=3
-pkgdesc="Windows next to Omarchy on the Surface Pro 11: Limine boot entry and Reboot to Windows"
+pkgrel=4
+pkgdesc="Windows next to Omarchy on the Surface Pro 11: Limine boot entry and Boot to Windows"
 arch=('any')
 url="https://github.com/turbineBMW/surface-pro-11-omarchy"
 license=('MIT')
@@ -13,11 +13,11 @@ source=('windows-boot-entry' 'set-bootnext-windows' 'surface-pro-11-reboot-windo
         'surface-pro-11-reboot-windows.desktop' 'omarchy-menu.jsonc' 'surface-pro-11-windows-entry.service')
 sha256sums=('c25094132b9b92604f8e238bc131199b31c9dceb3ca1ff017b2bdb5e48700962'
             'aaa83010d08d24d6ddce679c105fedc6d850ae806f0ad58d7fb42e7803f63886'
-            '3b24e0a5db1fae6bf3c4b66bbd770baaf12ec20edf804e84b60fd3df52d802a9'
+            'ddb0e0ada06258497b683f674c51398d85788863b2f1a9a2a78fdd1cefd95671'
             '09b3f54b93622c25e6539e1fe3d3b3ee36d8f4b5622b7da3d5a16de2107cd8c3'
             '0dec9f27cf5b3c1651ce83348a8322ac24dc00ea2169ff6a94f7e19225016002'
-            'f733dd218228ddb3229e136da1ab800e76ac6f2019415f4883ff62b402554a83'
-            '473ccc53919bdf444d82a28090abd41844c1cd4f5ef9d40c3f2f50d0da78e39a'
+            '76fbc211bd35d0c433e6efe57ce96a8d561de10f6f2eb12ea2eca5965642a03b'
+            'c27e4716bc1c1ac9a952942731a01a2e443404ae6d772e88421f39d97a39ebc2'
             '09ccb600fd0fbfd51446caee66e20c2417b0304797154e68fbafe72631904256')
 
 package() {
@@ -29,7 +29,7 @@ package() {
   install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
   ln -s ../surface-pro-11-windows-entry.service \
     "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/surface-pro-11-windows-entry.service"
-  # System > Reboot to Windows; surface-pro-11-plugins adds it to each user's
+  # System > Boot to Windows; surface-pro-11-plugins adds it to each user's
   # Omarchy menu once.
   install -Dm644 omarchy-menu.jsonc "$pkgdir/usr/share/$pkgname/omarchy-menu.jsonc"
 }

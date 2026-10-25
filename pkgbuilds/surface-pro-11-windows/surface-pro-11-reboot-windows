@@ -14,7 +14,7 @@ if [[ ${1:-} == --available ]]; then
 fi
 
 "$helper" >/dev/null || {
-  notify-send -u critical "Reboot to Windows" "There is no Windows Boot Manager on this Surface." 2>/dev/null || true
+  notify-send -u critical "Boot to Windows" "There is no Windows Boot Manager on this Surface." 2>/dev/null || true
   echo "There is no Windows Boot Manager entry in the firmware." >&2
   exit 1
 }

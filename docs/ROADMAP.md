@@ -39,14 +39,14 @@ Next:
 
 Done 2026-10-24 as described below; the Limine entry is added at install
 (limine-entry-tool --add-efi from the Windows EFI partition, mounted the way
-limine-scan does), and Reboot to Windows goes through a no-argument pkexec
+limine-scan does), and Boot to Windows goes through a no-argument pkexec
 helper.
 
 
 - Limine entry for Windows. Its boot manager is on its own EFI partition
   (p1), not Omarchy's, so `FIND_BOOTLOADERS` does not find it today. Point
   the entry at that partition by GUID.
-- "Reboot to Windows" in the Omarchy menu and as a desktop entry: set the
+- "Boot to Windows" in the Omarchy menu and as a desktop entry: set the
   firmware's `BootNext` to Windows Boot Manager and reboot. Windows then
   starts exactly as it does on its own, which keeps BitLocker's measurements
   unchanged. A chainload through Limine would change them.

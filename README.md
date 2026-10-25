@@ -42,7 +42,7 @@ works. The lock screen's face flow follows
 ## Windows
 
 If Windows is still installed, installing the repository adds it to the
-Limine boot menu below Omarchy, and System > Reboot to Windows (also a
+Limine boot menu below Omarchy, and System > Boot to Windows (also a
 launcher entry) restarts into it once. That sets the firmware's one-time
 BootNext to Windows Boot Manager, so Windows starts exactly as it does on
 its own and BitLocker sees the boot path it expects; the next restart comes
@@ -78,7 +78,7 @@ once Omarchy ships the same fixes.
 | `surface-pro-11-face` | 1-5 | | Face unlock with the IR camera: camera wiring, facelock quirk, `surface-pro-11-face-setup` |
 | `facelock` | 0.2.1.r153-2 | [tyvsmith/facelock](https://github.com/tyvsmith/facelock) `main` (no release has IR cameras behind CAMSS yet) | Face authentication for PAM |
 | `onnxruntime-bin` | 1.29.0 | Arch Linux ARM has no onnxruntime | Microsoft's aarch64 build, for facelock |
-| `surface-pro-11-windows` | 1-2 | | Windows in the Limine boot menu (below Omarchy) and System > Reboot to Windows |
+| `surface-pro-11-windows` | 1-2 | | Windows in the Limine boot menu (below Omarchy) and System > Boot to Windows |
 | `surface-pro-11-keyring` | 1-1 | | This repository's signing key |
 
 No firmware is in this repository. The Surface's DSP, GPU and Wi-Fi firmware
