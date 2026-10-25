@@ -5,7 +5,7 @@
 
 pkgname=surface-pro-11-support
 pkgver=1
-pkgrel=4.4
+pkgrel=4.5
 pkgdesc="Hardware support for the Microsoft Surface Pro 11 (Snapdragon X Elite) not yet carried upstream"
 arch=('aarch64')
 # Qualcomm-only: the pacman platform guard keeps it off other hardware.
@@ -13,7 +13,7 @@ groups=('omarchy-platform-qualcomm')
 url="https://github.com/omacom/omarchy-pkgs"
 license=('MIT' 'BSD-3-Clause' 'LicenseRef-QualcommAtheros-ath10k')
 depends=('alsa-ucm-conf' 'bluez' 'bluez-utils' 'lsp-plugins-lv2' 'pipewire' 'python'
-         'surface-snapdragon-addresses' 'wireplumber')
+         'surface-snapdragon-addresses' 'upower>=1.91.5-1.1' 'wireplumber')
 optdepends=('iptsd: pen and touch, restarted across suspend by this package')
 makedepends=('alsa-ucm-conf' 'alsa-utils' 'git' 'linux-firmware-atheros' 'm4' 'python' 'zstd')
 # The board data is an ELF image; stripping it corrupts the record.
@@ -44,7 +44,7 @@ source=(
   'surface-pro-11-pen-pair'
   'surface-pro-11-pen-forget'
   'omarchy-menu.jsonc'
-  'surface-pro-11-battery.conf'
+  '70-surface-pro-11-battery.rules'
   '70-surface-pro-11-flex-keyboard.rules'
   '50-surface-pro-11-flex-keyboard.quirks'
   'README.package.md'
@@ -74,10 +74,10 @@ sha256sums=('f571d0667e48da9967db20770beff426a5e0372836a8a2bb66cd806d43b0f580'
             '9f779b6cc541c3942b741415a26c3f53d4314241381f90aced276196c666f280'
             '73eebfbf5727fb8e3f69c6246e897e23b81d73e5201a6071f4974ac49fc7cd6c'
             '3b80b8aacee78343a99abf2a8dad34382236cf8f33d2d7f9cdefe1e8b546b602'
-            '5f0906abd6bc8e753a52a963a08fe199fa57d02e9a919f629676238cbeba738c'
+            '5a5574b1ebe3691734a411e0ae8f79e0a7581cbf13c8769775fc0b08aaa3fea5'
             'cebd7c6179bf86f3df9da20b143b70594f8c9223963ac46c7dd14f08352b7d0f'
             'eb703cfc8e06210e1340c3272c0da6a0426f525fa0f49935b69b8b9e1546e7f4'
-            '861e69cfabb9ea0ab3fb4ceec2f2b16b48228d05b216205e3befec86cd92243b'
+            '3f438f2847f0c3af6b739fddefb366e2bd1109ef94e53bda579836a7070142d0'
             'f74f925ccd6fc2f4b9bdf7682f6927a64809c8668e8232997c541cc6f992787b')
 
 # The Surface reports generic WCN7850 identifiers (subsystem 17cb:1107,
@@ -151,7 +151,7 @@ package() {
     "$pkgdir/usr/lib/udev/rules.d/70-surface-pro-11-flex-keyboard.rules"
   install -Dm644 50-surface-pro-11-flex-keyboard.quirks \
     "$pkgdir/usr/share/libinput/50-surface-pro-11-flex-keyboard.quirks"
-  install -Dm644 surface-pro-11-battery.conf "$pkgdir/usr/lib/modprobe.d/surface-pro-11-battery.conf"
+  install -Dm644 70-surface-pro-11-battery.rules "$pkgdir/usr/lib/udev/rules.d/70-surface-pro-11-battery.rules"
 
   install -Dm644 README.package.md "$pkgdir/usr/share/doc/$pkgname/README.md"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"

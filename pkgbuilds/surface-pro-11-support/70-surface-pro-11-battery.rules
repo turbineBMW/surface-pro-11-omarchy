@@ -1,0 +1,10 @@
+# Surface Pro 11: one battery for the desktop.
+#
+# The Qualcomm battery manager provides the battery and the chargers, with the
+# charge limit and the cell temperature; the Surface Aggregator offers the same
+# cell again as BAT1 and ADP1, under another serial number, and UPower summed
+# the two into its display battery. Hide the Aggregator's from UPower (upower
+# 1.91.5-1.1 or later honours UPOWER_IGNORE). The kernel devices stay: BAT1
+# carries the charge cycle count the battery manager does not report.
+SUBSYSTEM=="power_supply", DRIVERS=="surface_battery", ENV{UPOWER_IGNORE}="1"
+SUBSYSTEM=="power_supply", DRIVERS=="surface_ac", ENV{UPOWER_IGNORE}="1"
