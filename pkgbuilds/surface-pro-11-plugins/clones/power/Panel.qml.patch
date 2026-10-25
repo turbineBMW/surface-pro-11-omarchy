@@ -65,6 +65,16 @@
    Timer { interval: 5000; running: root.opened; repeat: true; onTriggered: root.refresh() }
  
    // Rotate the status phrase while the panel is open and we're in a
+@@ -446,7 +490,8 @@
+             width: (parent.width - parent.spacing) / 2
+             spacing: Style.spacing.labelGap
+             InfoPair { label: Commons.I18n.t("power.batterySize"); value: root.reading(root.batteryInfo.size) }
+-            InfoPair { label: Commons.I18n.t("power.chargeCycles"); value: root.reading(root.batteryInfo.cycles) || "—" }
++            // The Qualcomm battery manager reports no cycle count (0): show none rather than 0.
++            InfoPair { label: Commons.I18n.t("power.chargeCycles"); value: root.batteryInfo.cycles === "0" ? "—" : (root.reading(root.batteryInfo.cycles) || "—") }
+           }
+ 
+           Column {
 @@ -515,6 +559,61 @@
              }
            }

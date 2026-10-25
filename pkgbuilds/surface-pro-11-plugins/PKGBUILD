@@ -1,8 +1,8 @@
 # Maintainer: Brandon Williams <turbine.bmw@gmail.com>
 pkgname=surface-pro-11-plugins
 pkgver=1
-pkgrel=6
-pkgdesc="Omarchy shell plugins for the Surface Pro 11: pen battery, charge limit, auto-brightness, rounded corners"
+pkgrel=8
+pkgdesc="Omarchy shell plugins for the Surface Pro 11: pen battery, charge limit, auto-brightness, rounded corners, first-login offers"
 arch=('any')
 url="https://github.com/turbineBMW/surface-pro-11-omarchy"
 license=('MIT')
@@ -22,11 +22,15 @@ package() {
   find "$share" -type d -exec chmod 755 {} +
   find "$share" -type f -exec chmod 644 {} +
 
-  install -Dm755 -t "$lib" "$startdir/surface-pro-11-plugins-generate" "$startdir/surface-pro-11-plugins-setup"
+  install -Dm755 -t "$lib" "$startdir/surface-pro-11-plugins-generate" "$startdir/surface-pro-11-plugins-setup" \
+    "$startdir/surface-pro-11-first-login"
   install -Dm644 "$startdir/surface-pro-11-plugins.hook" "$pkgdir/usr/share/libalpm/hooks/90-surface-pro-11-plugins.hook"
-  install -Dm644 -t "$pkgdir/usr/lib/systemd/user" "$startdir/surface-pro-11-plugins-setup.service"
+  install -Dm644 -t "$pkgdir/usr/lib/systemd/user" "$startdir/surface-pro-11-plugins-setup.service" \
+    "$startdir/surface-pro-11-first-login.service"
   install -d "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants"
-  ln -s ../surface-pro-11-plugins-setup.service \
-    "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/surface-pro-11-plugins-setup.service"
+  local unit
+  for unit in surface-pro-11-plugins-setup surface-pro-11-first-login; do
+    ln -s "../$unit.service" "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/$unit.service"
+  done
   install -d "$pkgdir/var/lib/$pkgname"
 }

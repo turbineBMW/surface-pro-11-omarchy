@@ -1,0 +1,11 @@
+[Unit]
+Description=Offer the Surface Pro 11 extras at the first login
+After=graphical-session.target surface-pro-11-plugins-setup.service
+PartOf=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/surface-pro-11-plugins/surface-pro-11-first-login
+
+[Install]
+WantedBy=graphical-session.target

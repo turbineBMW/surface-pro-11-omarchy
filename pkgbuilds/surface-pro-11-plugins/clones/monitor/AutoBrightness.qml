@@ -18,7 +18,7 @@ import Quickshell.Io
 Item {
   id: root
 
-  property bool active: false
+  property bool active: true    // on until the state file says otherwise
   property real offset: 0           // percentage points on top of the curve
   readonly property alias lux: st.slowLux
   readonly property bool sensorLive: st.live
