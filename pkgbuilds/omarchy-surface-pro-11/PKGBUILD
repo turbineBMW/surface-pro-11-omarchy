@@ -1,7 +1,7 @@
 # Maintainer: Brandon Williams <turbine.bmw@gmail.com>
 pkgname=omarchy-surface-pro-11
 pkgver=1
-pkgrel=5
+pkgrel=6
 pkgdesc="Everything the Surface Pro 11 needs on top of stock Omarchy, until it is upstream"
 arch=('any')
 url="https://github.com/turbineBMW/surface-pro-11-omarchy"

@@ -28,6 +28,7 @@ source_dir() {
 
 mkdir -p "$out_root"
 status=0
+missing=0
 for clone in "$share"/clones/*/; do
   clone=${clone%/}
   spec=$clone/clone.json
@@ -62,6 +63,12 @@ for clone in "$share"/clones/*/; do
   if [[ $failed == true ]]; then
     rm -rf "$stage"
     status=1
+    # On a fresh install there is no previous build: the plugin would simply
+    # not exist, and nothing would say so. That is an error, not a warning.
+    if [[ ! -d $out_root/$id ]]; then
+      warn "$id: no previous build to keep; the plugin is missing"
+      missing=1
+    fi
     continue
   fi
 
@@ -100,6 +107,8 @@ for built in "$out_root"/*/; do
 done
 
 # A clone that could not be rebuilt keeps working from its previous build, so
-# this is a warning for pacman, not a failed transaction step.
+# this is a warning for pacman, not a failed transaction step. A clone with no
+# build at all is an error: the plugin is missing.
 (( status == 0 )) || warn "see the warnings above; the Surface plugins keep their previous builds"
+(( missing == 0 )) || { warn "some Surface plugins are missing; fix their patches for this Omarchy"; exit 1; }
 exit 0

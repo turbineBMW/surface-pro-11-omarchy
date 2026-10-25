@@ -2,7 +2,9 @@
 # What an installer cannot do while it runs, done once on the first boot:
 #
 #   - add the surface-pro-11 repository above [omarchy]: Omarchy's installer
-#     restores a stock /etc/pacman.conf as its last step;
+#     restores a stock /etc/pacman.conf as its last step. The Omarchy Arm
+#     installer adds it itself, as the machine's device recipe; then there is
+#     nothing to do;
 #   - run the board setup again, now that the installer has staged Windows'
 #     driver store (the sensor configuration), rebuilding the boot image if
 #     that changes anything.
@@ -15,7 +17,7 @@ pacman_conf=/etc/pacman.conf
 begin="# BEGIN SURFACE PRO 11 REPOSITORY"
 end="# END SURFACE PRO 11 REPOSITORY"
 
-if ! grep -qxF "$begin" "$pacman_conf" && grep -qx '\[omarchy\]' "$pacman_conf"; then
+if ! grep -qx '\[surface-pro-11\]' "$pacman_conf" && grep -qx '\[omarchy\]' "$pacman_conf"; then
   tmp=$(mktemp)
   awk -v begin="$begin" -v end="$end" '
     !done && $0 == "[omarchy]" {
