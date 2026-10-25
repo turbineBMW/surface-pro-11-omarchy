@@ -17,16 +17,16 @@
    property int fingerprintUnreachedStreak: 0
    property bool fingerprintAttemptReachedDevice: false
    property bool fingerprintAttemptFastError: false
-@@ -77,7 +87,7 @@
+@@ -70,7 +80,7 @@
    function currentlyLocked() {
      return lockRequested || sessionLock.locked || sessionLock.secure
    }
 -  readonly property bool authenticating: authenticatingPassword || fingerprintAuthenticating
 +  readonly property bool authenticating: authenticatingPassword || fingerprintAuthenticating || faceAuthenticating
-   readonly property var batteryService: shell && shell.services ? shell.firstPartyServiceFor("omarchy.battery") : null
-   readonly property bool powerSaverActive: batteryService ? batteryService.powerSaverOnBattery : false
    // A prompt clears the unavailable notice before the attempt finishes.
-@@ -221,6 +231,11 @@
+   readonly property bool fingerprintUnavailable: FingerprintModel.isUnavailable(fingerprintProbeStreak) || (fingerprintConfigured && (!fingerprintAttemptReachedDevice || fingerprintAttemptFastError) && FingerprintModel.isUnavailable(fingerprintUnreachedStreak))
+ 
+@@ -212,6 +222,11 @@
      fingerprintResumeTimer.stop()
      if (passwordPam.active) passwordPam.abort()
      if (fingerprintPam.active) fingerprintPam.abort()
@@ -38,7 +38,7 @@
    }
  
    function beginLock() {
-@@ -238,6 +253,7 @@
+@@ -229,6 +244,7 @@
      Qt.callLater(function() {
        root.refreshBackground()
        root.refreshFingerprintStatus()
@@ -46,7 +46,7 @@
      })
  
      return true
-@@ -422,6 +438,52 @@
+@@ -385,6 +401,52 @@
      runWake()
    }
  
@@ -99,7 +99,7 @@
    function startFingerprint() {
      if (!lockRequested || !sessionLock.secure || !fingerprintConfigured || fingerprintPaused) return
      if (fingerprintPam.active || fingerprintAuthenticating) return
-@@ -511,6 +573,7 @@
+@@ -474,6 +536,7 @@
          sessionLockStabilizeTimer.stop()
          pendingSessionLockTimer.stop()
          root.startFingerprint()
@@ -107,7 +107,7 @@
        }
      }
  
-@@ -549,6 +612,8 @@
+@@ -512,6 +575,8 @@
          backgroundVersion: root.backgroundVersion
          fingerprintConfigured: root.fingerprintConfigured || root.fingerprintUnavailable
          fingerprintUnavailable: root.fingerprintUnavailable
@@ -116,7 +116,7 @@
          authenticatingPassword: root.authenticatingPassword
          failureMessage: root.failureMessage
          failedAttempts: root.failedAttempts
-@@ -559,8 +624,12 @@
+@@ -520,8 +585,12 @@
          passwordText: root.enteredPassword
          onPasswordTextEdited: function(password) { root.enteredPassword = password }
          onSubmitPassword: function(password) { root.submitPassword(password) }
@@ -130,7 +130,7 @@
        }
  
      }
-@@ -587,6 +656,8 @@
+@@ -548,6 +617,8 @@
        backgroundVersion: root.backgroundVersion
        fingerprintConfigured: root.fingerprintConfigured || root.fingerprintUnavailable
        fingerprintUnavailable: root.fingerprintUnavailable
@@ -139,7 +139,7 @@
        authenticatingPassword: false
        failureMessage: ""
        failedAttempts: 0
-@@ -643,6 +714,62 @@
+@@ -603,6 +674,62 @@
      }
    }
  
@@ -202,7 +202,7 @@
    // The lock only starts decoding its wallpaper once locked, and a machine
    // suspending right after locking froze that decode partway: waking showed
    // the password field on a bare background, then the wallpaper popped in.
-@@ -841,10 +968,10 @@
+@@ -776,10 +903,10 @@
          root.armBlankTimer()
          return
        }
@@ -217,7 +217,7 @@
      }
    }
  
-@@ -908,6 +1035,12 @@
+@@ -839,6 +966,12 @@
      else armBlankTimer()
    }
  
@@ -230,7 +230,7 @@
    FileView {
      path: "/etc/pam.d/omarchy-lock-password"
      watchChanges: true
-@@ -932,6 +1065,7 @@
+@@ -863,6 +996,7 @@
      knownScreenCount = realScreenCount()
      refreshBackground()
      refreshFingerprintStatus()
@@ -238,7 +238,7 @@
      checkStrandedLock()
    }
  
-@@ -961,6 +1095,9 @@
+@@ -892,6 +1026,9 @@
          passwordPam: root.passwordPamConfigured,
          fingerprint: root.fingerprintConfigured,
          fingerprintUnavailable: root.fingerprintUnavailable,
@@ -248,7 +248,7 @@
          authenticating: root.authenticating,
          lastEvent: root.lastEvent,
          lastEventAt: root.lastEventAt
-@@ -970,6 +1107,7 @@
+@@ -901,6 +1038,7 @@
      function preview(): string {
        root.refreshBackground()
        root.refreshFingerprintStatus()

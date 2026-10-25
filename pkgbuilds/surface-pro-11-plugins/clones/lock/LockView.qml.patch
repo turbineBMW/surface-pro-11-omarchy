@@ -9,7 +9,7 @@
    property bool authenticatingPassword: false
    property string failureMessage: ""
    property int failedAttempts: 0
-@@ -32,9 +34,10 @@
+@@ -27,9 +29,10 @@
    readonly property int fieldFontSize: Math.round(Style.font.heading * 1.125)
    readonly property int passwordDotFontSize: Math.round(Style.font.heading * 1.33)
    readonly property int passwordDotLetterSpacing: Math.round(Style.font.heading * 0.19)
@@ -23,15 +23,15 @@
    // Shrink the dots to fit once the password outgrows the field, so every
    // keystroke stays visible — otherwise long passwords clip with no feedback.
    readonly property real passwordDotScale: dotMetrics.advanceWidth > 0
-@@ -50,6 +53,7 @@
-   readonly property bool feedActive: root.video && root.loadBackground && !root.displaysBlank && !root.powerSaverActive
+@@ -45,6 +48,7 @@
+   readonly property bool video: Util.isVideoPath(root.backgroundPath)
  
    signal submitPassword(string password)
 +  signal submitFace()
    signal passwordTextEdited(string password)
    signal clearFailureRequested()
    signal wakeRequested()
-@@ -205,6 +209,7 @@
+@@ -181,6 +185,7 @@
            var submitted = root.passwordText
            root.passwordTextEdited("")
            if (submitted.length > 0) root.submitPassword(submitted)
@@ -39,7 +39,7 @@
          }
  
          Keys.onPressed: function(event) {
-@@ -223,12 +228,12 @@
+@@ -199,12 +204,12 @@
        Text {
          textFormat: Text.PlainText
          anchors.fill: passwordInput
@@ -55,7 +55,7 @@
          horizontalAlignment: Text.AlignHCenter
          verticalAlignment: Text.AlignVCenter
          elide: Text.ElideRight
-@@ -252,6 +257,24 @@
+@@ -228,6 +233,24 @@
          font.family: Style.font.family
          font.pixelSize: Math.round(root.fieldFontSize * 1.1)
          horizontalAlignment: Text.AlignHCenter
