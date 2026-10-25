@@ -23,13 +23,19 @@ depends=(
   libplist
   polkit
 )
+# bin/build installs only makedepends and checkdepends before a --nodeps
+# makepkg, so the depends the build needs headers from are repeated here.
 makedepends=(
   docbook-xsl
   git
   glib2-devel
   gobject-introspection
   gtk-doc
+  libgudev
+  libimobiledevice
+  libplist
   meson
+  polkit
   python
   systemd
   usbmuxd
