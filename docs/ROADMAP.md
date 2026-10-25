@@ -17,9 +17,10 @@ Before it goes public:
 
 ## 2. Plugins on by default (surface-pro-11-plugins)
 
-Done: pen (OSD silent while docked), corners, Power + charge-limit toggle,
+Done: corners, Power + charge-limit toggle,
 Display + ambient auto-brightness, rounded windows for every theme. The
-battery clone was dropped (it added nothing to stock); brightness sync and the
+battery clone was dropped (it added nothing to stock), and so was the pen OSD
+(the keyboard dock stopped reporting the pen); brightness sync and the
 battery display redesign stay personal.
 
 Next:

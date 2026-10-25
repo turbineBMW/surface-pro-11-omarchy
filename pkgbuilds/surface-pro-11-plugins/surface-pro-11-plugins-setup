@@ -85,12 +85,21 @@ for root in "${shipped[@]}"; do
     fi
   done
 done
-(( ${#new[@]} )) || exit 0
 
-# Enabling goes through the running shell.
+# A plugin a later build no longer ships leaves our link pointing at nothing.
+gone=()
+for link in "$plugins_dir"/*; do
+  [[ -L $link && ! -e $link ]] || continue
+  for root in "${shipped[@]}"; do
+    [[ $(readlink "$link") == "$root"/* ]] && gone+=("${link##*/}")
+  done
+done
+(( ${#new[@]} + ${#gone[@]} )) || exit 0
+
+# Enabling and removing go through the running shell.
 ready=false
 for _ in $(seq 60); do
-  if omarchy-shell shell rescanPlugins >/dev/null 2>&1; then
+  if omarchy-shell shell listPlugins >/dev/null 2>&1; then
     ready=true
     break
   fi
@@ -100,6 +109,12 @@ if [[ $ready != true ]]; then
   log "the Omarchy shell is not running; trying again at the next login"
   exit 0
 fi
+
+for id in "${gone[@]}"; do
+  omarchy-plugin-remove "$id" --yes >/dev/null && log "removed $id"
+done
+omarchy-shell shell rescanPlugins >/dev/null
+(( ${#new[@]} )) || exit 0
 
 # Ids switched on in shell.json: bar widgets in bar.layout, the rest in plugins[]
 enabled_ids() {
