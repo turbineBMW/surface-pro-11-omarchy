@@ -13,7 +13,7 @@ depends=('linux-omarchy' 'surface-pro-11-support' 'surface-pro-11-sensors' 'ipts
 install=omarchy-surface-pro-11.install
 source=('surface-pro-11-board-setup' 'omarchy-surface-pro-11-firstboot' 'omarchy-surface-pro-11-firstboot.service')
 sha256sums=('a03b37121fa509dba0f82fa65e117688b9cb857daf4ca8c8efe608c2225e6c3c'
-            'ccfe4835ff207c62c85e01f2a8afada21c43ca1ae0842a1d36c8791c9b82af39'
+            'ad41646b1c8f9542c55813a3648e0b5fc658fd4bb7bf82e59d16e6606cd527a5'
             'c8bd8bb394f8daa1bf9dd65f07678099201c5090e87b794aac3b01d369f10107')
 
 package() {
