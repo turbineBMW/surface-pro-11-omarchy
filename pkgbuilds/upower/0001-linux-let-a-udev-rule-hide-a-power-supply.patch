@@ -1,0 +1,44 @@
+From: Brandon Williams <turbine.bmw@gmail.com>
+Subject: [PATCH] linux: let a udev rule hide a power supply
+
+A power supply with the udev property UPOWER_IGNORE set is not added.
+Some machines expose one battery through two drivers, each with its
+own serial number, so the duplicate detection by serial does not catch
+them and the display device sums the two. On the Surface Pro 11 the
+Qualcomm battery manager and the Surface Aggregator both offer the
+same cell; a udev rule can now keep the one that carries the charge
+limit.
+
+---
+--- a/src/linux/up-device-supply.c	2026-10-25 15:32:18.282455862 -0400
++++ b/src/linux/up-device-supply.c	2026-10-25 15:32:18.313888205 -0400
+@@ -624,6 +624,13 @@
+ 		return FALSE;
+ 	}
+ 
++	/* A udev rule can hide a supply UPower must not use: for instance one
++	 * battery that two drivers expose, under different serial numbers. */
++	if (g_udev_device_get_property_as_boolean (native, "UPOWER_IGNORE")) {
++		g_debug ("ignoring %s: UPOWER_IGNORE is set", native_path);
++		return FALSE;
++	}
++
+ 	/* try to work out if the device is powering the system */
+ 	scope = g_udev_device_get_sysfs_attr (native, "scope");
+ 	if (scope != NULL && g_ascii_strcasecmp (scope, "device") == 0) {
+--- a/src/linux/up-device-supply-battery.c	2026-10-25 15:32:18.282516016 -0400
++++ b/src/linux/up-device-supply-battery.c	2026-10-25 15:32:18.314011794 -0400
+@@ -571,6 +571,13 @@
+ 		return FALSE;
+ 	}
+ 
++	/* A udev rule can hide a supply UPower must not use: for instance one
++	 * battery that two drivers expose, under different serial numbers. */
++	if (g_udev_device_get_property_as_boolean (native, "UPOWER_IGNORE")) {
++		g_debug ("ignoring %s: UPOWER_IGNORE is set", native_path);
++		return FALSE;
++	}
++
+ 	/* try to work out if the device is powering the system */
+ 	scope = g_udev_device_get_sysfs_attr (native, "scope");
+ 	if (scope != NULL && g_ascii_strcasecmp (scope, "device") == 0)

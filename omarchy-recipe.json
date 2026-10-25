@@ -58,6 +58,11 @@
       "name": "surface-pro-11-keyring",
       "replaces": false,
       "description": "This repository's signing key, so pacman keeps trusting its updates."
+    },
+    {
+      "name": "upower",
+      "replaces": true,
+      "description": "Arch's UPower with one patch: a udev rule can hide a power supply, so the Surface's battery, which two drivers expose, counts once."
     }
   ]
 }

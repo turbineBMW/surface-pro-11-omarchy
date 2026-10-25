@@ -1,0 +1,74 @@
+# Maintainer: Brandon Williams <turbine.bmw@gmail.com>
+# Contributor: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
+# Contributor: Jan de Groot <jgc@archlinux.org>
+
+# Arch's upower plus one patch: a power supply with the udev property
+# UPOWER_IGNORE is left out. The Surface Pro 11 exposes its battery twice
+# (Qualcomm battery manager and Surface Aggregator), and UPower summed them.
+# surface-pro-11-support ships the rule that hides the Aggregator's copy.
+
+pkgname=upower
+pkgver=1.91.5
+pkgrel=1.1
+pkgdesc="Abstraction for enumerating power devices, listening to device events and querying history and statistics"
+url="https://upower.freedesktop.org"
+arch=(aarch64)
+license=(GPL-2.0-or-later)
+depends=(
+  glib2
+  glibc
+  libgcc
+  libgudev
+  libimobiledevice
+  libplist
+  polkit
+)
+makedepends=(
+  docbook-xsl
+  git
+  glib2-devel
+  gobject-introspection
+  gtk-doc
+  meson
+  python
+  systemd
+  usbmuxd
+)
+optdepends=('usbmuxd: Read charge status of iOS devices')
+checkdepends=(
+  python-dbus
+  python-dbusmock
+  python-gobject
+  python-packaging
+  umockdev
+)
+backup=(etc/UPower/UPower.conf)
+source=("git+https://gitlab.freedesktop.org/upower/upower.git#tag=v$pkgver"
+        '0001-linux-let-a-udev-rule-hide-a-power-supply.patch')
+b2sums=('db7dc8e9e42f6806a905eb271a4c3cff59e73d24617ca7012b10a71a3b047052d518dc4dae91438058ad5f688323e2e264aa97f2cb88246c113fa79e59f234df'
+        'c0cf9ed91bea51a99d22a11b103424fc1414c0a5c30b28ac5e478a2ff47dd558660b91a23e183d67e9fb81efe2b9a0f1d0301915c5288f5306a48dc70aaa2636')
+
+prepare() {
+  cd upower
+  patch -Np1 -i ../0001-linux-let-a-udev-rule-hide-a-power-supply.patch
+}
+
+build() {
+  local meson_options=(
+    -D installed_tests=false
+  )
+
+  arch-meson upower build "${meson_options[@]}"
+  meson compile -C build
+}
+
+check() {
+  meson test -C build --print-errorlogs
+}
+
+package() {
+  depends+=(libg{lib,object,io}-2.0.so)
+  provides+=(libupower-glib.so)
+
+  meson install -C build --destdir "$pkgdir"
+}
