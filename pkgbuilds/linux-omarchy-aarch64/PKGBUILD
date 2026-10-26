@@ -8,7 +8,7 @@
 pkgbase=linux-omarchy-aarch64
 _kernel=linux-omarchy
 pkgver=7.3
-pkgrel=1.13
+pkgrel=1.14
 pkgdesc='Omarchy Linux for aarch64 (BORE CPU scheduler, ADIOS I/O scheduler)'
 url='https://omarchy.org'
 arch=(
@@ -274,9 +274,6 @@ source=(
   2209-i2c-qcom-cci-Suspend-the-controller-50-ms-after-the-last-transfer.patch
   2210-arm64-dts-qcom-hamoa-glymur-Disable-the-crypto-engine.patch
   2217-serial-qcom-geni-release-the-OPP-and-ICC-votes-in-sy.patch
-  2218-Bluetooth-SMP-ignore-an-all-zero-IRK.patch
-  2219-Bluetooth-SMP-distribute-the-identity-address-when-b.patch
-  2220-Bluetooth-hci_sync-Reprogram-the-resolving-list-when.patch
 )
 source_aarch64=(config.aarch64)
 validpgpkeys=(
@@ -578,10 +575,7 @@ sha256sums=('87363c24f10e06321eb362765521094e94471f6bff8bce2d6b3e40f39f004953'
             'b3b19a3205ce8e981a0e92921ff5316f51fe329f81951c700d7ac3416e63790f'
             '5eb763f45fdef2428571d4a8988522e350c71158ef83b2f1a76d3dba9798d677'
             '71bfc324bed8d2d19169f29e65bf5a29d48b67c910a161e7ffc015a76fc5fecf'
-            'f83198620494a2d72c515575aea969376d93e4e526bef5f411eb6b60efeded9d'
-            '4a3528073beb675af4c4748acad19a3ee693344fcc825ba1a9ef407b9b49b8f2'
-            'c1457ca4daeb260800347a4a19ae5e9f8c53d98bc3e713a98c2df2c7d9e7aeaa'
-            '3513996b64ce973a950bc3dd495ee7bebc2c0910d18fd239580c2b79c1a80507')
+            'f83198620494a2d72c515575aea969376d93e4e526bef5f411eb6b60efeded9d')
 sha256sums_aarch64=('fbfcd55fcb7eaea6b6ffbf4b6368f836236f5f5203287532459e377d6e03ec26')
 b2sums=('b7fb8c74de664fdd0cd7b42afff2720bda5c4bdb2ffffa80a745c5fecd029c6fe739a3ecbdaa5c5e27194a8acb9bf861271e7bafe6eb475bb3ccd6862e4caf60'
         'SKIP'
@@ -877,10 +871,7 @@ b2sums=('b7fb8c74de664fdd0cd7b42afff2720bda5c4bdb2ffffa80a745c5fecd029c6fe739a3e
         'd26c85dd95e4474d35439684140bfa3955d6b545b910db3a1e50062a60be75bba668d91e73b5fb5e38aaac21b31715c2ffa2cc168f3b48bd9637eb381b243c77'
         '753658af251a83196626a8767d345a43d6fbf8b93574a1fc13287bb9b173c24e805df9a6b463f52fa8c887367d52c5e572ce92381a4c3b3d44af5dcbcef6ebc3'
         '9586b54ca8191bdc1aa2d813d319afa613176fb87de0dc82e0772f26468df72b6396c5c9e5d00fbb8c317f0f3654ee6605d93297a1388211648ffbd429fb4522'
-        '1a9c18e6f9fc71d80eb35c982bb0ee9b81f0af20830cbaa31e5344450cbeeb19b70e8e82f5b84a39c88be6b678db05ae2bdf855b0ebfc68db9287bac80245f2e'
-        '74c7b674bebcb511f70ac75b942c8f76405f9a7386792bb7a400029d5f9a2139de44190797f2f06a6b9853280ac52b7eabf90c9da3754f43d149aa7196398000'
-        '61d739982254246da7d1b6608045bd8b0e01e0befd3def23f4748fc3e938cecdc9e37a6e858780d4472b286eb9702f7976e8c39cfcb1e980faada4889d825dc1'
-        'c85336a2f0863e9dd01bd445c8fdecec31e7be6373acb44469137ded54ed09b97e491bbf80c970a2fcdab53e67aea1d1349cafab6768489f7d0b8c1484fc88ab')
+        '1a9c18e6f9fc71d80eb35c982bb0ee9b81f0af20830cbaa31e5344450cbeeb19b70e8e82f5b84a39c88be6b678db05ae2bdf855b0ebfc68db9287bac80245f2e')
 b2sums_aarch64=('7688dd3a9fed8b0088ba40675a187b80e91d8099d23b17a5b6518fb9b94e99d3ede84eac5a8afed733f44191f237a07f560f2ccc80d0b82c8d24f22aa2943827')
 
 # https://www.kernel.org/pub/linux/kernel/v7.x/sha256sums.asc
