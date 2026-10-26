@@ -5,7 +5,7 @@
 
 pkgname=surface-pro-11-support
 pkgver=1
-pkgrel=4.7
+pkgrel=4.8
 pkgdesc="Hardware support for the Microsoft Surface Pro 11 (Snapdragon X Elite) not yet carried upstream"
 arch=('aarch64')
 # Qualcomm-only: the pacman platform guard keeps it off other hardware.
@@ -67,7 +67,7 @@ sha256sums=('f571d0667e48da9967db20770beff426a5e0372836a8a2bb66cd806d43b0f580'
             'a71714ba944ea62a9e23e9fdcf199759cee5f92b9b8c0fce1ff288095e056e19'
             '0ef274d4c03746fa9e8752a6e1e65d4c6bc90858ea4fa794e1e25e523917324f'
             'd7c5ebe1787670d0ee25981c421b0193182cba3f9b6afe20c7b09beb646de9c2'
-            '317b38cd3df193209b2215d58c6f9950762451e4d564ed82c2af10f466293362'
+            '303845ffd67d4a1f78c5d49f928fb54fdd485d08d25b734a49fcc65c72e36c1b'
             'd28fa651e9a40e94b85e69aeab0ab95074ea60f36091273a1fb2516cb9fcbada'
             '3b80b8aacee78343a99abf2a8dad34382236cf8f33d2d7f9cdefe1e8b546b602'
             '5a5574b1ebe3691734a411e0ae8f79e0a7581cbf13c8769775fc0b08aaa3fea5'

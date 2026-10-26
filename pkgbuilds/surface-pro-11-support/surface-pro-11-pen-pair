@@ -155,60 +155,79 @@ def main():
                 print('  sudo systemctl restart bluetooth')
 
 
+def find_pen(ctl, deadline):
+    ctl.send('scan le')
+    shown = -1
+    found = None, None
+    while time.monotonic() < deadline:
+        line = ctl.next_line(0.5)
+        if line:
+            m = PEN.search(line)
+            if m and ('[NEW]' in line or '[CHG]' in line):
+                found = m.group(1), m.group(2).strip()
+                break
+        left = int(deadline - time.monotonic())
+        if left != shown:
+            print(f'\r  Looking for the pen... {left:2d} s left ', end='', flush=True)
+            shown = left
+    print('\r' + ' ' * 40 + '\r', end='')
+    ctl.send('scan off')
+    return found
+
+
+def try_pair(ctl, addr):
+    """Pair with addr; None on success, else why it failed."""
+    ctl.send(f'pair {addr}')
+    start = time.monotonic()
+    while time.monotonic() - start < PAIR_WAIT:
+        line = ctl.next_line(0.5)
+        if not line:
+            continue
+        if '(yes/no)' in line:
+            ctl.send('yes')
+        elif 'Pairing successful' in line:
+            return None
+        elif 'Failed to pair' in line or 'AuthenticationFailed' in line or 'AuthenticationCanceled' in line:
+            return line.split(':', 1)[-1].strip() or line
+    return 'the pen did not answer'
+
+
 def pair(pairable):
     print("Hold the pen's top button for about 7 seconds, until its light blinks.")
     print()
     ctl = Bluetoothctl()
-    addr = name = None
+    reason = None
     try:
         if not pairable:
             run('bluetoothctl', 'pairable', 'on')
         ctl.send('agent NoInputNoOutput')
         ctl.send('default-agent')
-        ctl.send('scan le')
-        start = time.monotonic()
-        shown = -1
-        while time.monotonic() - start < WAIT:
-            line = ctl.next_line(0.5)
-            if line:
-                m = PEN.search(line)
-                if m and ('[NEW]' in line or '[CHG]' in line):
-                    addr, name = m.group(1), m.group(2).strip()
-                    break
-            left = WAIT - int(time.monotonic() - start)
-            if left != shown:
-                print(f'\r  Looking for the pen... {left:2d} s left ', end='', flush=True)
-                shown = left
-        print('\r' + ' ' * 40 + '\r', end='')
-        if not addr:
-            say('No pen found.')
-            print('Hold the top button longer, until the light blinks, then run Pair Pen again.')
-            print('A pen that is paired with another computer nearby may have connected there instead.')
-            return 1
-
-        print(f'Found {name} ({addr}), pairing...')
-        ctl.send('scan off')
-        time.sleep(1)
-        ctl.send(f'pair {addr}')
-        start = time.monotonic()
-        paired = False
-        reason = 'the pen did not answer'
-        while time.monotonic() - start < PAIR_WAIT:
-            line = ctl.next_line(0.5)
-            if not line:
-                continue
-            if '(yes/no)' in line:
-                ctl.send('yes')
-            elif 'Pairing successful' in line:
-                paired = True
+        # The pen shows up as soon as the button wakes it, which can be before
+        # it is in pairing mode, and then it refuses to pair. A refusal goes
+        # back to looking until WAIT runs out.
+        deadline = time.monotonic() + WAIT
+        while True:
+            addr, name = find_pen(ctl, deadline)
+            if not addr:
                 break
-            elif 'Failed to pair' in line or 'AuthenticationFailed' in line or 'AuthenticationCanceled' in line:
-                reason = line.split(':', 1)[-1].strip() or line
+            print(f'Found {name} ({addr}), pairing...')
+            time.sleep(1)
+            reason = try_pair(ctl, addr)
+            if reason is None:
                 break
-        if not paired:
-            say(f'Pairing failed: {reason}.')
-            print('Put the pen into pairing mode again (hold the top button until it blinks) and retry.')
             run('bluetoothctl', 'remove', addr)
+            print(f'  Not paired yet ({reason}), trying again...')
+            time.sleep(2)
+            while ctl.next_line(0) is not None:
+                pass
+        if not addr:
+            if reason:
+                say(f'Pairing failed: {reason}.')
+                print('Put the pen into pairing mode again (hold the top button until it blinks) and retry.')
+            else:
+                say('No pen found.')
+                print('Hold the top button longer, until the light blinks, then run Pair Pen again.')
+                print('A pen that is paired with another computer nearby may have connected there instead.')
             return 1
         run('bluetoothctl', 'trust', addr)
     finally:
