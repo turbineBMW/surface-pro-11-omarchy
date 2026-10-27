@@ -71,7 +71,7 @@ once Omarchy ships the same fixes.
 
 | Package | Version | Upstream | Adds |
 |---|---|---|---|
-| `linux-omarchy` | 7.3-1.14 | [omarchy-pkgs#1417](https://github.com/omacom/omarchy-pkgs/pull/1417) (Linux 7.3) plus one patch | Suspend no longer hard-locks when it follows a resume closely (2217, keeps the Surface EC's UART link alive) |
+| `linux-omarchy` | 7.3-3.1 | Omarchy's `7.3-3` (Linux 7.3) plus one patch | Suspend no longer hard-locks when it follows a resume closely (2217, keeps the Surface EC's UART link alive) |
 | `surface-pro-11-support` | 1-4.1 | [omarchy-pkgs#1528](https://github.com/omacom/omarchy-pkgs/pull/1528), then pen pairing and speakers | Touchpad mode after resume, Bluetooth palm rejection, Slim Pen pairing, Windows speaker tuning |
 | `omarchy-surface-pro-11` | 1-4 | [omarchy#14390](https://github.com/omacom/omarchy/pull/14390) | The board setup a #14390 install does: OLED device tree pin, panel and keyboard before disk unlock, light sensor |
 | `surface-pro-11-plugins` | 1-4 | | Omarchy shell plugins, switched on once per user: lock screen with face unlock, battery charge-limit toggle in the Power panel, ambient-light auto-brightness in the Display panel, rounded screen corners, and windows rounded to match the display in every theme |

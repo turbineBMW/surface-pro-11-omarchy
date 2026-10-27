@@ -8,7 +8,7 @@
 pkgbase=linux-omarchy-aarch64
 _kernel=linux-omarchy
 pkgver=7.3
-pkgrel=1.14
+pkgrel=3.1
 pkgdesc='Omarchy Linux for aarch64 (BORE CPU scheduler, ADIOS I/O scheduler)'
 url='https://omarchy.org'
 arch=(
@@ -97,7 +97,6 @@ source=(
   0565-i2c-asue140d-touchpad-100khz.patch{,.sig}
   0566-hid-asus-no-keyboard-init-reports-to-touchpads.patch{,.sig}
   0567-hid-magicmouse-null-deref-without-input-device.patch{,.sig}
-  0568-hid-updates.patch
   0572-hid-asus-worker-teardown.patch{,.sig}
   0605-thunderbolt-pcie-rescan-after-tunnel.patch{,.sig}
   0608-thunderbolt-fixes-3.patch
@@ -195,6 +194,13 @@ source=(
   1102-HID-asus-host-controlled-Fn-lock-for-the-0B05-4B42-keyboard.patch
   1103-HID-asus-disable-OOBE-mode-on-the-ProArt-P14-keyboard-too.patch
   1104-HID-asus-turn-the-keyboard-backlight-off-for-sleep-without-asus-wmi.patch
+  1105-thunderbolt-platform-keep-the-N1x-tunnel-Root-Ports-awake-for-PCIe-tunnels.patch
+  1106-ACPI-OSI-hide-Windows-2022-from-the-ProArt-P16-and-Lenovo-Pro-9.patch
+  1107-HID-asus-boot-the-ProArt-N1x-keyboards-with-media-keys.patch
+  1108-HID-multitouch-mark-the-ProArt-N1x-PixArt-touchpads-as-pressure-pads.patch
+  1111-power_wrap-send-the-LPS0-notifications-on-MT8901.patch
+  1112-power_wrap-keep-the-USB4-resources-on-N1x-laptops-by-default.patch
+  1113-power_wrap-use-suspend-to-idle-by-default-on-MT8901.patch
   2000-media-iris-reset-AHB-bridge-before-enabling-HW-mode.patch
   2001-ASoC-qcom-q6apm-lpass-dais-Reset-the-codec-DMA-channel-map-in-hw_params.patch
   2002-power-supply-qcom_battmgr-Notify-charger-supplies-of-online-changes.patch
@@ -362,7 +368,6 @@ sha256sums=('87363c24f10e06321eb362765521094e94471f6bff8bce2d6b3e40f39f004953'
             'SKIP'
             'e8620ff5c3c82f98a3a0e7c3d4845b2c1277f74b43141a3ae57630a5ed8af23f'
             'SKIP'
-            '98b3ef0b37472514215dbee7b6acf6acee0eba55ee9cd87b5ddadebe818324da'
             '2487ac0386a6df389ef685a79c5fd60242a040a5af77ba5e58ff099e7ff5ce60'
             'SKIP'
             'ef66f6c32ac98a311b7437265b21a8c70746f1ea4dfbe28aff655e778d09c28b'
@@ -497,6 +502,13 @@ sha256sums=('87363c24f10e06321eb362765521094e94471f6bff8bce2d6b3e40f39f004953'
             '9b5940534409ec08d285fbb749c7f6ba1649825f346e7ab2a1f975b5dfbcf310'
             'c7b388262ae9f8f9ec2e4f3366eb2d0cbd4d1e93f0bb563b7d3df3a17fd16e74'
             '2efbd3f5d196c31c85a3733707a89cd54f8579756e30f3a16b8ac45ed76b32a6'
+            'ef6fec074ececd3d2a06b59ab1f863516236bfacfabf819b677ca2b0cd393c47'
+            'a231544d13c98836bae43c538cb32115ee8bad8dfb4769effe0cf613b4040125'
+            'ca758bac52aad5748557d14573d6cf7367158f6f9ef4c6145fb71c5de058429a'
+            '1e3911a4258d015ebea4fdf21c9e864d008b59d4837553af810cebdadb844485'
+            'bd264bd31d5c16bddafc2365a4305eddea93e1d90d50469b1ec9c188836235dd'
+            '7da823c147742a18de7aa777ef3cab60e0deb9a33611b09fe29cc1d7a6c3dcf9'
+            '91cc2a7e7954d64735080c9242a9fc57477c31352dcb382d60fc8572512b9e12'
             '61260d5828b8d5009df572d5efe50ae359879fb0fbb1bc42d9145dc1947fc8dd'
             '2c2eeccb8ac53d8626494fc4a5f47ab4b7271f68c5318a67fc5f5cd130763671'
             '9f08ec0bb897a496283e8f82a9478bdf42189b739094613ddc0a378b68a12dc7'
@@ -576,7 +588,7 @@ sha256sums=('87363c24f10e06321eb362765521094e94471f6bff8bce2d6b3e40f39f004953'
             '5eb763f45fdef2428571d4a8988522e350c71158ef83b2f1a76d3dba9798d677'
             '71bfc324bed8d2d19169f29e65bf5a29d48b67c910a161e7ffc015a76fc5fecf'
             'f83198620494a2d72c515575aea969376d93e4e526bef5f411eb6b60efeded9d')
-sha256sums_aarch64=('fbfcd55fcb7eaea6b6ffbf4b6368f836236f5f5203287532459e377d6e03ec26')
+sha256sums_aarch64=('ff51a67d9ebc2c8bdb6da35c9c393c604ba9b6c0e07efcee00d1ef326ab44f92')
 b2sums=('b7fb8c74de664fdd0cd7b42afff2720bda5c4bdb2ffffa80a745c5fecd029c6fe739a3ecbdaa5c5e27194a8acb9bf861271e7bafe6eb475bb3ccd6862e4caf60'
         'SKIP'
         '60eac409f1ba50fe319f6b3aa5b0af81bc7ce5628ca41c1af346a6d5ef0fc9c577527742d1f70ece7e07ea410fcd112b32d64f0a05af5b532f27b62e5e7d837a'
@@ -658,7 +670,6 @@ b2sums=('b7fb8c74de664fdd0cd7b42afff2720bda5c4bdb2ffffa80a745c5fecd029c6fe739a3e
         'SKIP'
         '910eba8f5eae43810aba2fc31892b8e75c86489756e2677f93757cb16225a3c95478966e686da8616bd17d12b3e7831f57541722b4b0c1a9864cf97dac0c6a97'
         'SKIP'
-        'e4a2954c766950bc4b83338962549d4f5000302072fb8e420fbabfae99bdd90204883c57a3da551afceda275fc70441de31ccf2fe7cfb2733be949119c40e1ab'
         '50e1f7ab0fc2e2ad6d1943c4576fa9f46c2b5a470e16d33e4100a18414fb27f4bed7d34c7227e38fcc05b63ec97f7d9c60d7ab47ed87f5b4447b00c5d37ae279'
         'SKIP'
         'bf138fd2ba2618ae9ff64838706c2212b478513e04b54ca3bdd8bf97292a8a310d73e0cd96533be62f139b645d7ac5de22a4c3bc1fd9f67e807bb862e965ea08'
@@ -793,6 +804,13 @@ b2sums=('b7fb8c74de664fdd0cd7b42afff2720bda5c4bdb2ffffa80a745c5fecd029c6fe739a3e
         '4d7f30645b60a53f38426ae3b81d63aeaa5131c37de609a29ed6f860b9c8c4af135344adc2ebf34d2578c5b7e24fc2f5953313626133a84dd11899ec8ddf86d4'
         'fe4c9b5c3daa914887734219bf63c651e28981cbc6ea9fdb11316b40e7c6e91d2784fdcc8307e5592eeed85809fb7e0ed284bd4b1e2e0714202f014705e4247d'
         '5c5a6d3a59de1be12520ec544e9f259ceef4c0981f371b363a54b4b4764ffcec198d499059e94b4ebb1bdd0293438ea6b3ea6eff6812698d9c754e98af2a946b'
+        '546b87d9c226c3e2c62c90e91c880b26425348feb4cca0f25b73efa2003b576a601c7f057b30c5dc0c085f4cf0955055664654e3ce53a349d6f10e7f327e74be'
+        'fde11142645119e3b25f909e694feef8c6bba923b464ba015929fd406a2c96d54cd9fb5f3ee74d534857e982379d6f5721ba6291503412c8b2f039e12f7a4d8f'
+        '6a3bafbf73ae1fe65575685c9d932c8c4f885547da9648ae0e98579f7b7553f1bae2c0a985f1f0fab12b82a27fe284056b271a0a2a00701e042fc9c4892df537'
+        '269b6d2d7ca9039c7f4596aeb8c6a2f4128e8bad4502b63b3ecfcbd6abf1af91ecd3b3688895de3d38d811a2e09137a3c5b8b8196e427e29f135bc808d8f8c3c'
+        '0fa43d77b37e947f09f77e5966ee628110b7b10c3873c0c71cea4421f847527aac7cc63805dd08283cbaae8c4d4b716028bb4b9b5b2f5d4288506132dfdce3a7'
+        'af7ad4fd6cd443d912959eb43362573d8a1a2abd5b3449192bded80a331dd2f0b61b1cf8ab8cde52bfa32fea8cda07577cac4c740c84dd9839c5dcdb8d7f6950'
+        'd13225b4ffd006cca0c4355202c5c2467377d0ac604d165a42e835971ae1f085481bc80baae44af36e935310294277a622b07c7326d8651622b750ee9b14a9be'
         'dd6c431db54ed291186cbe2ede032d8839caeaef83141d4f2fc4304c8580b426937da40aa29b66d3cbb52fedbc734c0dc6c99e5b5c266badb0d78b194f73c093'
         '6c10ffec36ef7b097a4f0562cb559eaf49bbff31213181c725e6896bfb3f9112bc7a6f127a396ead99792ccd8d93019e3e4090806a417ba50d99711bb309cecb'
         '83491203f17dcf589f99b7e677e7cbeb36d5bd22e05d5bb564a254776fbcfb6020606975bd5c44cb4bc603d7a89162f7c8be2a299758b5680b73aba49f6459e0'
@@ -872,7 +890,7 @@ b2sums=('b7fb8c74de664fdd0cd7b42afff2720bda5c4bdb2ffffa80a745c5fecd029c6fe739a3e
         '753658af251a83196626a8767d345a43d6fbf8b93574a1fc13287bb9b173c24e805df9a6b463f52fa8c887367d52c5e572ce92381a4c3b3d44af5dcbcef6ebc3'
         '9586b54ca8191bdc1aa2d813d319afa613176fb87de0dc82e0772f26468df72b6396c5c9e5d00fbb8c317f0f3654ee6605d93297a1388211648ffbd429fb4522'
         '1a9c18e6f9fc71d80eb35c982bb0ee9b81f0af20830cbaa31e5344450cbeeb19b70e8e82f5b84a39c88be6b678db05ae2bdf855b0ebfc68db9287bac80245f2e')
-b2sums_aarch64=('7688dd3a9fed8b0088ba40675a187b80e91d8099d23b17a5b6518fb9b94e99d3ede84eac5a8afed733f44191f237a07f560f2ccc80d0b82c8d24f22aa2943827')
+b2sums_aarch64=('0ecc0bfa8e7fa06463e13426c648e865cbe8e38ed7703bbbfa7214458f6046892980edddb5f7bebff28557d35d3bd1ddf8dd74b682c7ee1e8f2c620b89858d28')
 
 # https://www.kernel.org/pub/linux/kernel/v7.x/sha256sums.asc
 
