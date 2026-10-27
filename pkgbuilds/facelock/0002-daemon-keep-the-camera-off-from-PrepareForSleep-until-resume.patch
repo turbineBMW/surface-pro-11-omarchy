@@ -1,0 +1,396 @@
+From daf82e60c6ea950f3655020bb5577c846af06665 Mon Sep 17 00:00:00 2001
+From: Brandon Williams <turbine.bmw@gmail.com>
+Date: Mon, 26 Oct 2026 21:37:22 -0400
+Subject: [PATCH] fix(daemon): Keep the camera off from PrepareForSleep until
+ the resume
+
+- refuse captures between PrepareForSleep(true) and (false): a request admitted in that window has its token cancelled on installation, so an authentication ends cancelled before the camera opens and a preview frame is rejected
+- hold a logind delay sleep inhibitor and release it once the camera is closed, retaking it on resume
+- clear the sleep gate if the PrepareForSleep stream ends
+- record the new suspend rows in ADR 008 and the changelog
+
+The suspend path cancelled the running request and released the camera, but anything admitted afterwards ran. A lock screen locks for the suspend and starts a face scan when the lock is up, which lands in exactly that window, so the camera and IR emitter went into the suspend lit.
+---
+ CHANGELOG.md                                 |   9 +
+ crates/facelock-daemon/src/server.rs         | 175 ++++++++++++++++++-
+ crates/facelock-daemon/tests/server_authz.rs |  36 ++++
+ docs/adr/008-camera-lifecycle.md             |   3 +-
+ 4 files changed, 215 insertions(+), 8 deletions(-)
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 48c745c..269e018 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
+ 
+ ### Fixed
+ 
++- **The camera and IR emitter no longer go into a suspend lit**: on logind's
++  `PrepareForSleep(true)` the daemon cancelled the running request and released the camera,
++  but a request that arrived after that was admitted. A lock screen that locks for the
++  suspend and starts a face scan once the lock is up landed exactly there, so the camera
++  opened and the emitter lit about a second before the system slept. Captures are now
++  refused from `PrepareForSleep(true)` until `PrepareForSleep(false)` (an authentication
++  ends `cancelled` before the camera opens, a preview frame is rejected), and the daemon
++  holds a logind `delay` sleep inhibitor that it releases once the camera is closed, so the
++  suspend no longer races the release.
+ - **Daemon `Authenticate` accepts user-manager callers and checks root callers** (#397):
+   with `abort_if_ssh` on (the default), a non-root caller had to belong to a logind session,
+   and every process the systemd user manager starts — KDE's `kscreenlocker`, a Quickshell
+diff --git a/crates/facelock-daemon/src/server.rs b/crates/facelock-daemon/src/server.rs
+index c52d115..34979d0 100644
+--- a/crates/facelock-daemon/src/server.rs
++++ b/crates/facelock-daemon/src/server.rs
+@@ -886,6 +886,10 @@ struct CurrentRequestInner {
+     /// Authentication preflight snapshots this value, then publishes its
+     /// token only if no cancel landed before capture admission.
+     cancellation_epoch: AtomicU64,
++    /// Set from logind's `PrepareForSleep(true)` until `PrepareForSleep(false)`.
++    /// Written only under `slot`, so a request is either installed before the
++    /// sleep began (and cancelled by it) or sees the flag on installation.
++    sleeping: AtomicBool,
+ }
+ 
+ impl CurrentRequest {
+@@ -893,9 +897,17 @@ impl CurrentRequest {
+     /// drops. Called once the request is certain to run — after
+     /// authorization, after the capture slot is claimed — so a rejected call
+     /// never displaces the request it was rejected in favour of.
++    ///
++    /// While the system is going to sleep the token is cancelled on the way
++    /// in, so the request ends before its camera opens.
+     fn install(&self, token: CancelToken) -> CurrentRequestGuard {
+         let generation = self.0.generation.fetch_add(1, Ordering::Relaxed) + 1;
+-        *self.lock() = Some((generation, token));
++        let mut slot = self.lock();
++        if self.0.sleeping.load(Ordering::Acquire) {
++            token.cancel();
++        }
++        *slot = Some((generation, token));
++        drop(slot);
+         CurrentRequestGuard {
+             current: self.clone(),
+             generation,
+@@ -908,7 +920,8 @@ impl CurrentRequest {
+ 
+     /// Publish a request that spent time in camera-independent preflight, but
+     /// only if suspend, `ReleaseCamera`, or shutdown did not cancel between
+-    /// its checkpoint and capture admission.
++    /// its checkpoint and capture admission, and the system is not going to
++    /// sleep.
+     ///
+     /// Both this check and [`Self::cancel`] serialize on `slot`: whichever
+     /// wins is definitive. If install wins, the later cancel reaches the
+@@ -919,7 +932,9 @@ impl CurrentRequest {
+         checkpoint: u64,
+     ) -> Option<CurrentRequestGuard> {
+         let mut slot = self.lock();
+-        if self.0.cancellation_epoch.load(Ordering::Acquire) != checkpoint {
++        if self.0.cancellation_epoch.load(Ordering::Acquire) != checkpoint
++            || self.0.sleeping.load(Ordering::Acquire)
++        {
+             token.cancel();
+             return None;
+         }
+@@ -937,12 +952,41 @@ impl CurrentRequest {
+     /// empty — nothing is running, so there is nothing to stop.
+     pub fn cancel(&self) {
+         let slot = self.lock();
++        self.cancel_locked(&slot);
++    }
++
++    fn cancel_locked(&self, slot: &Option<(u64, CancelToken)>) {
+         self.0.cancellation_epoch.fetch_add(1, Ordering::AcqRel);
+         if let Some((_, token)) = slot.as_ref() {
+             token.cancel();
+         }
+     }
+ 
++    /// Logind announced a suspend: cancel whatever is in flight and cancel
++    /// every request admitted from now until [`Self::end_sleep`].
++    ///
++    /// Cancelling the running request alone is not enough. A lock screen
++    /// locks as the system goes down and starts a face scan when the lock is
++    /// up — after the camera was released — and that scan would open the
++    /// camera and light the IR emitter into the suspend.
++    pub fn begin_sleep(&self) {
++        let slot = self.lock();
++        self.0.sleeping.store(true, Ordering::Release);
++        self.cancel_locked(&slot);
++    }
++
++    /// The system resumed (or the sleep was aborted): admit requests again.
++    pub fn end_sleep(&self) {
++        let _slot = self.lock();
++        self.0.sleeping.store(false, Ordering::Release);
++    }
++
++    /// Whether a suspend is under way, for the preview methods, which run
++    /// one frame per call without a request token.
++    fn is_sleeping(&self) -> bool {
++        self.0.sleeping.load(Ordering::Acquire)
++    }
++
+     /// A poisoned slot is recovered rather than propagated: the only code
+     /// that holds this lock stores or clones, so a poisoned mutex means some
+     /// *other* thread panicked, and refusing to cancel over it would leave
+@@ -1501,6 +1545,18 @@ where
+         self.current.clone()
+     }
+ 
++    /// Previews carry no request token for the suspend path to cancel, so
++    /// they are refused outright while the system is going to sleep.
++    fn refuse_while_sleeping(&self, operation: &str) -> fdo::Result<()> {
++        if self.current.is_sleeping() {
++            info!(operation, "system is going to sleep, refusing capture");
++            return Err(fdo::Error::Failed(format!(
++                "system is going to sleep ({operation} rejected)"
++            )));
++        }
++        Ok(())
++    }
++
+     /// Check if the config file has been modified since the handler was built.
+     /// If so, reload config, rebuild the engine/store/handler, and swap it in.
+     /// Called at the start of authenticate and enroll — the two methods that
+@@ -2127,6 +2183,7 @@ where
+     pub async fn preview_frame_as(&self, caller: CallerIdentity) -> fdo::Result<Vec<u8>> {
+         authorize_method(&caller, Method::PreviewFrame, None)?;
+         self.last_activity.store(now_secs(), Ordering::Relaxed);
++        self.refuse_while_sleeping("PreviewFrame")?;
+         let capture_guard = self.capture_slot.try_acquire("PreviewFrame")?;
+         let handler = self.handler.clone();
+         tokio::task::spawn_blocking(move || {
+@@ -2158,6 +2215,7 @@ where
+         self.last_activity.store(now_secs(), Ordering::Relaxed);
+         let caller_is_root = caller.uid == 0;
+ 
++        self.refuse_while_sleeping("PreviewDetectFrame")?;
+         let capture_guard = self.capture_slot.try_acquire("PreviewDetectFrame")?;
+         let handler = self.handler.clone();
+         let user = user.to_string();
+@@ -2949,14 +3007,42 @@ async fn run_dbus_server(
+     Ok(())
+ }
+ 
++/// Take a logind delay inhibitor for sleep, so the suspend waits (up to
++/// logind's `InhibitDelayMaxSec`) until the camera is closed. Released by
++/// dropping the descriptor. Best-effort: without it the release still runs,
++/// it just races the suspend.
++async fn take_sleep_delay(proxy: &zbus::Proxy<'_>) -> Option<zbus::OwnedFd> {
++    match proxy
++        .call(
++            "Inhibit",
++            &(
++                "sleep",
++                "facelock",
++                "Turn the camera and IR emitter off before sleep",
++                "delay",
++            ),
++        )
++        .await
++    {
++        Ok(fd) => Some(fd),
++        Err(e) => {
++            warn!("cannot take a sleep delay inhibitor ({e}); camera release races the suspend");
++            None
++        }
++    }
++}
++
+ /// Watch for logind `PrepareForSleep` signals.
+ ///
+-/// On suspend (arg=true), release the camera so V4L2 handles don't go stale.
+-/// On resume (arg=false), just log — the camera will be re-acquired on demand.
++/// On suspend (arg=true), refuse new captures, release the camera so V4L2
++/// handles don't go stale and the IR emitter is off, then let the suspend
++/// proceed. On resume (arg=false), admit captures again — the camera will be
++/// re-acquired on demand.
+ ///
+ /// Manual testing:
+ /// ```bash
+ /// # Start daemon, then:
++/// systemd-inhibit --list   # shows facelock, mode delay
+ /// sudo systemctl suspend
+ /// # After resume, check: journalctl -u facelock-daemon --since "5 min ago"
+ /// ```
+@@ -2973,7 +3059,10 @@ async fn watch_sleep_signals(
+     )
+     .await?;
+ 
++    // Subscribe before taking the inhibitor, so no sleep can be announced in
++    // between that this loop would miss while logind waits on us.
+     let mut stream = proxy.receive_signal("PrepareForSleep").await?;
++    let mut sleep_delay = take_sleep_delay(&proxy).await;
+     info!("watching logind PrepareForSleep signals for camera suspend/resume");
+ 
+     while let Some(signal) = stream.next().await {
+@@ -2982,8 +3071,9 @@ async fn watch_sleep_signals(
+             // Lock-free and first: a capture in flight is holding the handler
+             // mutex, so its token is the only thing that reaches it. This
+             // replaces the old single `try_lock` that gave up with a "handler
+-            // busy" warning and left the camera streaming into suspend.
+-            current.cancel();
++            // busy" warning and left the camera streaming into suspend. From
++            // here until the resume, new captures are cancelled on admission.
++            current.begin_sleep();
+             let handler = handler.clone();
+             let _ = tokio::task::spawn_blocking(move || {
+                 // The cancelled request exits within one frame and drops the
+@@ -3016,10 +3106,20 @@ async fn watch_sleep_signals(
+                 }
+             })
+             .await;
++            // The camera is closed (or closes within a frame): let the
++            // suspend go ahead.
++            drop(sleep_delay.take());
+         } else {
++            current.end_sleep();
++            if sleep_delay.is_none() {
++                sleep_delay = take_sleep_delay(&proxy).await;
++            }
+             info!("resumed from suspend, camera will reacquire on demand");
+         }
+     }
++    // The signal stream ended (logind went away): never leave captures
++    // refused for good.
++    current.end_sleep();
+     Ok(())
+ }
+ 
+@@ -4637,6 +4737,67 @@ impl SyntheticService {
+         );
+     }
+ 
++    /// The suspend race: a lock screen starts a face scan after the sleep
++    /// path already released the camera. Every request admitted between
++    /// `PrepareForSleep(true)` and `(false)` must end before the camera
++    /// opens, whichever admission path it takes.
++    #[test]
++    fn requests_admitted_while_sleeping_are_cancelled() {
++        let current = CurrentRequest::default();
++        current.begin_sleep();
++
++        let enroll = CancelToken::new();
++        drop(current.install(enroll.clone()));
++        assert!(
++            enroll.is_cancelled(),
++            "a request installed during sleep reached the camera"
++        );
++
++        // A fresh checkpoint taken after the sleep began: the epoch alone
++        // would admit it.
++        let checkpoint = current.cancellation_epoch();
++        let auth = CancelToken::new();
++        let admitted = current.install_unless_cancelled_since(auth.clone(), checkpoint);
++        assert!(admitted.is_none());
++        assert!(
++            auth.is_cancelled(),
++            "an authentication that began during sleep reached the camera"
++        );
++        assert!(current.is_sleeping());
++    }
++
++    /// Going to sleep also stops the request already running, as before.
++    #[test]
++    fn begin_sleep_cancels_the_installed_request() {
++        let current = CurrentRequest::default();
++        let in_flight = CancelToken::new();
++        let _guard = current.install(in_flight.clone());
++        current.begin_sleep();
++        assert!(in_flight.is_cancelled());
++    }
++
++    /// After the resume, requests run again.
++    #[test]
++    fn requests_after_resume_are_admitted() {
++        let current = CurrentRequest::default();
++        current.begin_sleep();
++        current.end_sleep();
++        assert!(!current.is_sleeping());
++
++        let next = CancelToken::new();
++        drop(current.install(next.clone()));
++        assert!(!next.is_cancelled());
++
++        let checkpoint = current.cancellation_epoch();
++        let auth = CancelToken::new();
++        assert!(
++            current
++                .install_unless_cancelled_since(auth.clone(), checkpoint)
++                .is_some()
++        );
++        assert!(!auth.is_cancelled());
++    }
++
+     /// The generation check. Requests overlap at the edges — one is still
+     /// finishing while the next has claimed the capture slot — so the older
+     /// guard's drop must not clear the newer entry, or the next cancellation
+diff --git a/crates/facelock-daemon/tests/server_authz.rs b/crates/facelock-daemon/tests/server_authz.rs
+index 58bc0a7..391299e 100644
+--- a/crates/facelock-daemon/tests/server_authz.rs
++++ b/crates/facelock-daemon/tests/server_authz.rs
+@@ -1085,6 +1085,42 @@ async fn a_concurrent_request_cannot_disturb_the_one_in_flight() {
+     cleanup_db(&db_path);
+ }
+ 
++/// Between logind's `PrepareForSleep(true)` and `(false)` no capture runs.
++///
++/// The race this closes: the sleep path releases the camera, then a lock
++/// screen locking for the suspend starts its face scan, and the camera and IR
++/// emitter went into the suspend lit.
++#[tokio::test]
++async fn no_capture_runs_while_the_system_is_going_to_sleep() {
++    let svc = matching_service_for("alice");
++    let current = svc.current_request();
++
++    current.begin_sleep();
++    let during = svc
++        .authenticate_as(root(), "alice", CancelToken::new())
++        .await
++        .unwrap();
++    assert!(!during.matched);
++    assert_eq!(during.label, "cancelled", "frozen wire string: {during:?}");
++    assert!(
++        matches!(
++            svc.preview_frame_as(root()).await,
++            Err(fdo::Error::Failed(ref m)) if m.contains("going to sleep")
++        ),
++        "a preview frame ran while the system was going to sleep"
++    );
++
++    current.end_sleep();
++    let after = svc
++        .authenticate_as(root(), "alice", CancelToken::new())
++        .await
++        .unwrap();
++    assert!(
++        after.matched,
++        "the authentication after the resume must run normally: {after:?}"
++    );
++}
++
+ /// Each request is born with a fresh token, so a cancellation never outlives
+ /// the request it was aimed at.
+ ///
+diff --git a/docs/adr/008-camera-lifecycle.md b/docs/adr/008-camera-lifecycle.md
+index 64ebb8d..1e6203a 100644
+--- a/docs/adr/008-camera-lifecycle.md
++++ b/docs/adr/008-camera-lifecycle.md
+@@ -102,7 +102,7 @@ fn expire(&mut self, now)                      // deadline passed → drop camer
+ | `PreviewFrame`, `PreviewDetectFrame` | `acquire` → capture → `touch_preview` (a preview streams at ~10 fps; must not reopen per frame even with `release_secs = 0`; CLI exit still calls `ReleaseCamera`) |
+ | `ReleaseCamera` (root) | set cancel, drop camera |
+ | Config reload, `Shutdown`, SIGTERM/idle | handler dropped → camera dropped (`Drop` disables the IR emitter) |
+-| logind `PrepareForSleep(true)` | set cancel (lock-free), then drop camera — replaces today's `try_lock`/"busy" warning |
++| logind `PrepareForSleep(true)` | set cancel (lock-free) and refuse new captures until `PrepareForSleep(false)`, drop camera, then release the daemon's logind `delay` inhibitor so the suspend waits for it — replaces today's `try_lock`/"busy" warning |
+ | Second request while `Active` | capture slot "busy" error, unchanged; PAM degrades to password |
+ 
+ Warm reuse skips warmup (AE is settled) but discards `MMAP_BUFFERS − 1` frames: V4L2 leaves those buffers filled with the frames right after the last capture, and they would otherwise be analyzed first. ≤100 ms, closes the "matched on the previous auth's tail" window.
+@@ -144,6 +144,7 @@ Not doing (until a client needs it): an explicit `Cancel()` D-Bus method. If Qua
+ | `facelock test`, `enroll` (Ctrl-C) | Success → off; Cancelled via connection drop | off before the prompt returns |
+ | `facelock preview` | rolling `touch_preview`; exit → `ReleaseCamera` | off ≤ 2 s after even a crashed preview |
+ | Suspend mid-scan | Cancelled, closed | off before sleep |
++| Scan started after the suspend began (a lock screen locking for it) | Cancelled before open; previews refused | never on |
+ | Rate-limited / lid closed / ssh / IR required | Error before open | never on |
+ 
+ ## 7. One-shot mode

@@ -8,7 +8,7 @@
 pkgname=facelock
 _commit=82307d0cb77e557d12a7b4a1987f3093b9f58a49
 pkgver=0.2.1.r153.g82307d0
-pkgrel=2
+pkgrel=3
 pkgdesc="Face authentication for Linux PAM"
 arch=('aarch64')
 url="https://github.com/tyvsmith/facelock"
@@ -20,14 +20,19 @@ install=facelock.install
 options=(!lto)
 # 0001: a symlinked device path (a stable udev name for the IR node) found
 # no platform quirk, so require_ir refused the camera; not upstream yet.
+# 0002: a face scan the lock screen started after PrepareForSleep opened the
+# camera and lit the IR emitter into the suspend; not upstream yet.
 source=("$pkgname::git+$url.git#commit=$_commit"
-        '0001-camera-read-the-platform-identity-of-a-symlinked-device.patch')
+        '0001-camera-read-the-platform-identity-of-a-symlinked-device.patch'
+        '0002-daemon-keep-the-camera-off-from-PrepareForSleep-until-resume.patch')
 sha256sums=('01e6deb509060b7ada08bb1b79fb2289fef223d595111f9ecbed881669a7993c'
-            'a82a9e4643df036e7197af9ec0364e586e16529a1fa7595faf664f328c3e7f90')
+            'a82a9e4643df036e7197af9ec0364e586e16529a1fa7595faf664f328c3e7f90'
+            'deb155018cbb1b0d3f74c3e02d5d56fe60857c97ca509bd435519c11a0b4493e')
 
 prepare() {
     cd "$pkgname"
     patch -Np1 -i "$srcdir/0001-camera-read-the-platform-identity-of-a-symlinked-device.patch"
+    patch -Np1 -i "$srcdir/0002-daemon-keep-the-camera-off-from-PrepareForSleep-until-resume.patch"
     export RUSTUP_TOOLCHAIN=stable
     # Network happens here and only here: vendor the locked crates.io
     # dependencies beside the tree and point cargo at them, so build() and
