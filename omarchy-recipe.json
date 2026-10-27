@@ -10,14 +10,14 @@
     {
       "name": "linux-omarchy",
       "replaces": true,
-      "description": "Omarchy's 7.3 kernel with the Surface's suspend fix (the SAM link no longer drops when its UART powers down) and the Slim Pen pairing fixes.",
-      "upstream": "https://github.com/omacom/omarchy-pkgs/pull/1417"
+      "description": "Omarchy's 7.3 kernel with the Surface's suspend fix (the SAM link no longer drops when its UART powers down).",
+      "upstream": "https://github.com/omacom/omarchy-pkgs/pull/1698"
     },
     {
       "name": "linux-omarchy-headers",
       "replaces": true,
       "description": "Headers for that kernel, for DKMS modules.",
-      "upstream": "https://github.com/omacom/omarchy-pkgs/pull/1417"
+      "upstream": "https://github.com/omacom/omarchy-pkgs/pull/1698"
     },
     {
       "name": "surface-pro-11-support",
@@ -52,7 +52,7 @@
     {
       "name": "surface-pro-11-windows",
       "replaces": false,
-      "description": "A boot menu entry for Windows when it stays on the Surface, and Restart to Windows in Omarchy."
+      "description": "A boot menu entry for Windows when it stays on the Surface, and Boot to Windows in Omarchy."
     },
     {
       "name": "surface-pro-11-keyring",

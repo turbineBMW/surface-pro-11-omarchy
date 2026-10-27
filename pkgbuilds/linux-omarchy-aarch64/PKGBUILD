@@ -8,7 +8,7 @@
 pkgbase=linux-omarchy-aarch64
 _kernel=linux-omarchy
 pkgver=7.3
-pkgrel=3.1
+pkgrel=4.1
 pkgdesc='Omarchy Linux for aarch64 (BORE CPU scheduler, ADIOS I/O scheduler)'
 url='https://omarchy.org'
 arch=(
