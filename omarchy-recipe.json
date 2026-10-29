@@ -10,7 +10,7 @@
     {
       "name": "linux-omarchy",
       "replaces": true,
-      "description": "Omarchy's 7.3 kernel with the Surface's suspend fix (the SAM link no longer drops when its UART powers down).",
+      "description": "Omarchy's 7.3 kernel with the Surface's suspend fix (the SAM link no longer drops when its UART powers down) and audio over DisplayPort.",
       "upstream": "https://github.com/omacom/omarchy-pkgs/pull/1698"
     },
     {

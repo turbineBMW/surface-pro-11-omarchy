@@ -1,0 +1,23 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# The busybox init mounts efivarfs before the Snapdragon laptops' EFI variable
+# service registers (it comes from the uefisecapp TrustZone app), so every boot
+# flashes "mount: /sys/firmware/efi/efivars: fsopen() failed: Operation not
+# supported". Nothing in the initramfs needs efivarfs and the real root mounts
+# it again, so silence that one mount in the image's copy of init_functions.
+
+build() {
+  local f=$BUILDROOT/init_functions
+
+  # Only the base hook (busybox init) adds it; the systemd init has none.
+  [[ -f $f ]] || return 0
+  sed -i 's|^\(\s*mount -t efivarfs efivarfs /sys/firmware/efi/efivars -o nosuid,nodev,noexec\)$|\1 2>/dev/null|' "$f"
+}
+
+help() {
+  cat <<HELPEOF
+Hides the busybox init's efivarfs mount error on machines whose EFI variable
+service registers after early userspace starts.
+HELPEOF
+}

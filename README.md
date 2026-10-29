@@ -71,7 +71,7 @@ once Omarchy ships the same fixes.
 
 | Package | Version | Upstream | Adds |
 |---|---|---|---|
-| `linux-omarchy` | 7.3-4.1 | Omarchy's `7.3-3` (Linux 7.3) plus 2217, which [omarchy-pkgs#1698](https://github.com/omacom/omarchy-pkgs/pull/1698) ships as `7.3-4` | Suspend no longer hard-locks when it follows a resume closely (2217, keeps the Surface EC's UART link alive) |
+| `linux-omarchy` | 7.3-5.1 | [omarchy-pkgs#1698](https://github.com/omacom/omarchy-pkgs/pull/1698), which Omarchy will publish as `7.3-5` (Linux 7.3 plus 2217), plus 2221 and the `quiet-efivarfs` initramfs hook, which no Omarchy PR has yet | Suspend no longer hard-locks when it follows a resume closely (2217, keeps the Surface EC's UART link alive), audio over DisplayPort to a monitor or dock (2221), no efivarfs mount error flashing during boot |
 | `surface-pro-11-support` | 1-4.11 | [omarchy-pkgs#1528](https://github.com/omacom/omarchy-pkgs/pull/1528), then pen pairing, speakers, DisplayPort audio and monitor brightness | Touchpad mode after resume, Bluetooth palm rejection, Slim Pen pairing, Windows speaker tuning, audio over DisplayPort, external monitor brightness following the screen's |
 | `omarchy-surface-pro-11` | 1-6 | [omarchy#14390](https://github.com/omacom/omarchy/pull/14390) | The board setup a #14390 install does: OLED device tree pin, panel and keyboard before disk unlock, light sensor |
 | `surface-pro-11-plugins` | 1-11 | | Omarchy shell plugins, switched on once per user: lock screen with face unlock, battery charge-limit toggle in the Power panel, ambient-light auto-brightness in the Display panel, rounded screen corners, and windows rounded to match the display in every theme |
@@ -96,10 +96,10 @@ BitLocker-encrypted) Windows partition. The image itself carries no firmware.
 ## Versions
 
 A carried package uses the pkgrel Omarchy will give the change, plus `.N`:
-`7.3-4.1` is our first build of the kernel Omarchy will publish as `7.3-4`
-(its `7.3-3` plus 2217), not a build on top of Omarchy's `7.3-3`. When
-Omarchy publishes `7.3-4` or later, `bin/check-upstream` reports the package
-as caught up. Once Omarchy's build has every fix ours carries, the package's
+`7.3-5.1` is our first build of the kernel Omarchy will publish as `7.3-5`
+(omarchy-pkgs#1698), not a build on top of Omarchy's `7.3-4`. When Omarchy
+publishes `7.3-5` or later, `bin/check-upstream` reports the package as
+caught up. Once Omarchy's build has every fix ours carries, the package's
 directory is deleted here and pacman moves to Omarchy's next release.
 
 ## Maintaining

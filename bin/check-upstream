@@ -4,7 +4,7 @@
 #   bin/check-upstream [CHANNEL]    channel: edge (default), rc or stable
 #
 # Packages here use the pkgrel Omarchy will give the change plus ".N"
-# (7.3-4.1 is our first build of what Omarchy will publish as 7.3-4). Once Omarchy
+# (7.3-5.1 is our first build of what Omarchy will publish as 7.3-5). Once Omarchy
 # publishes that base version or a newer one, the package is listed as
 # "caught up": check that Omarchy's build has every fix ours carries, then
 # delete its directory here. Exits 1 if any package has caught up.
