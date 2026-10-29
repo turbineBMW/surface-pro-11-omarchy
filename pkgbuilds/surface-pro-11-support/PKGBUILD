@@ -5,14 +5,14 @@
 
 pkgname=surface-pro-11-support
 pkgver=1
-pkgrel=4.10
+pkgrel=4.11
 pkgdesc="Hardware support for the Microsoft Surface Pro 11 (Snapdragon X Elite) not yet carried upstream"
 arch=('aarch64')
 # Qualcomm-only: the pacman platform guard keeps it off other hardware.
 groups=('omarchy-platform-qualcomm')
 url="https://github.com/omacom/omarchy-pkgs"
 license=('MIT' 'BSD-3-Clause' 'LicenseRef-QualcommAtheros-ath10k')
-depends=('alsa-ucm-conf' 'bluez' 'bluez-utils' 'lsp-plugins-lv2' 'pipewire' 'python'
+depends=('alsa-ucm-conf' 'bluez' 'bluez-utils' 'ddcutil' 'lsp-plugins-lv2' 'pipewire' 'python'
          'surface-snapdragon-addresses' 'upower>=1.91.5-1.1' 'wireplumber')
 optdepends=('iptsd: pen and touch, restarted across suspend by this package')
 makedepends=('alsa-ucm-conf' 'alsa-utils' 'git' 'linux-firmware-atheros' 'm4' 'python' 'zstd')
@@ -41,6 +41,9 @@ source=(
   'surface-pro-11-flex-reconnect.service'
   'surface-pro-11-pen-pair'
   'surface-pro-11-pen-forget'
+  'ddc-vcp'
+  'surface-pro-11-brightness-sync'
+  'surface-pro-11-brightness-sync.service'
   'omarchy-menu.jsonc'
   '70-surface-pro-11-battery.rules'
   '70-surface-pro-11-flex-keyboard.rules'
@@ -69,11 +72,14 @@ sha256sums=('f571d0667e48da9967db20770beff426a5e0372836a8a2bb66cd806d43b0f580'
             'd7c5ebe1787670d0ee25981c421b0193182cba3f9b6afe20c7b09beb646de9c2'
             'f3183616ad0ffcce906d8319d6a82bb7ecb0e65d3eb7df9787c48e0439af75e0'
             'd28fa651e9a40e94b85e69aeab0ab95074ea60f36091273a1fb2516cb9fcbada'
+            '344fd0d09d9b43f0844999fff1f0cd644c136a99d626ae48857a53e813dbda75'
+            '569b76f1e47176e65c436843fc2f1edb6bcf3451853278afbe0183c6562f0706'
+            '88a5142212542a07c3933e14ebd7506ed20c029f69ef4384926bdd97782e735c'
             '3b80b8aacee78343a99abf2a8dad34382236cf8f33d2d7f9cdefe1e8b546b602'
             '5a5574b1ebe3691734a411e0ae8f79e0a7581cbf13c8769775fc0b08aaa3fea5'
             '16117bf87eff67463962e1de50799e1dd05baa8b39746cf1b93f2f445bb7c84f'
             'eb703cfc8e06210e1340c3272c0da6a0426f525fa0f49935b69b8b9e1546e7f4'
-            'c5f82a4a719c68799ca1621aa755dc72cc406cd4af24dee958d84bb68858b750'
+            '71c6a8aab329bad9852c83226751e955ec997894c9329ef5c275ab79caf45dde'
             'f74f925ccd6fc2f4b9bdf7682f6927a64809c8668e8232997c541cc6f992787b')
 
 # The Surface reports generic WCN7850 identifiers (subsystem 17cb:1107,
@@ -146,6 +152,16 @@ package() {
   install -Dm644 50-surface-pro-11-flex-keyboard.quirks \
     "$pkgdir/usr/share/libinput/50-surface-pro-11-flex-keyboard.quirks"
   install -Dm644 70-surface-pro-11-battery.rules "$pkgdir/usr/lib/udev/rules.d/70-surface-pro-11-battery.rules"
+
+  # External monitor brightness follows the screen's; on for every user, who
+  # can mask it (systemctl --user mask surface-pro-11-brightness-sync)
+  install -Dm755 ddc-vcp "$pkgdir/usr/lib/$pkgname/ddc-vcp"
+  install -Dm755 surface-pro-11-brightness-sync "$pkgdir/usr/lib/$pkgname/surface-pro-11-brightness-sync"
+  install -Dm644 surface-pro-11-brightness-sync.service \
+    "$pkgdir/usr/lib/systemd/user/surface-pro-11-brightness-sync.service"
+  install -d "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants"
+  ln -s ../surface-pro-11-brightness-sync.service \
+    "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/surface-pro-11-brightness-sync.service"
 
   install -Dm644 README.package.md "$pkgdir/usr/share/doc/$pkgname/README.md"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"

@@ -1,0 +1,16 @@
+[Unit]
+Description=Match external monitors' brightness to the Surface Pro 11's screen over DDC/CI
+ConditionFirmware=device-tree-compatible(microsoft,denali-oled)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/lib/surface-pro-11-support/surface-pro-11-brightness-sync
+Restart=on-failure
+RestartSec=5
+# Clamp the external monitors' range, in percent (systemctl --user edit):
+#Environment=BRIGHTNESS_SYNC_MIN=0
+#Environment=BRIGHTNESS_SYNC_MAX=100
+
+[Install]
+WantedBy=graphical-session.target

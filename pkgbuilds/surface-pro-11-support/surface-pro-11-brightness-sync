@@ -1,0 +1,68 @@
+#!/bin/bash
+# Mirror the internal panel's backlight onto external monitors over DDC/CI.
+#
+# Event-driven: backlight writes and DRM hotplugs both emit udev events, so
+# nothing polls. Writes go straight to each connector's DDC bus (from the
+# sysfs ddc link) through ddc-vcp, which works around the Snapdragon DP AUX
+# bugs that make stock ddcutil drop or garble requests, and verifies each
+# write by reading it back. Values are percent of the monitor's own maximum.
+
+ddc_vcp="$(dirname "$(readlink -f "$0")")/ddc-vcp"
+backlight="/sys/class/backlight/$(omarchy-hw-display 2>/dev/null || ls /sys/class/backlight | head -1)"
+
+# Optional floor/ceiling for the external monitor, in percent.
+min="${BRIGHTNESS_SYNC_MIN:-0}"
+max="${BRIGHTNESS_SYNC_MAX:-100}"
+
+internal_percent() {
+  local cur top
+  read -r cur <"$backlight/brightness" || return 1
+  read -r top <"$backlight/max_brightness" || return 1
+  (( top > 0 )) || return 1
+  echo $(( (cur * 100 + top / 2) / top ))
+}
+
+sync_all() {
+  local pct target conn status bus
+  pct="$(internal_percent)" || return
+  (( target = min + pct * (max - min) / 100 ))
+
+  for conn in /sys/class/drm/card*-*; do
+    [[ $conn =~ -(eDP|LVDS|DSI|Writeback)- ]] && continue
+    [[ -L $conn/ddc ]] || continue
+    read -r status <"$conn/status" 2>/dev/null
+    [[ $status == connected ]] || continue
+    bus="$(readlink -f "$conn/ddc")"
+    bus="${bus##*/i2c-}"
+    [[ ${last[$bus]} == "$target" ]] && continue
+    if "$ddc_vcp" "$bus" set-percent 0x10 "$target"; then
+      last[$bus]=$target
+    else
+      echo "DDC write to ${conn##*/card[0-9]-} (bus $bus) failed" >&2
+    fi
+  done
+}
+
+# Last value each bus confirmed, so repeated events don't rewrite it.
+declare -A last
+
+sync_all
+
+udevadm monitor --udev --subsystem-match=backlight --subsystem-match=drm | while read -r line; do
+  [[ $line == UDEV* ]] || continue
+  hotplug=0
+  [[ $line == *"(drm)"* ]] && hotplug=1
+
+  # Coalesce bursts (key repeat, multi-event hotplugs) into one write.
+  while read -r -t 0.15 line; do
+    [[ $line == *"(drm)"* ]] && hotplug=1
+  done
+
+  # A freshly connected monitor needs a moment before it answers DDC, and
+  # may come back at its own brightness.
+  if (( hotplug )); then
+    last=()
+    sleep 2
+  fi
+  sync_all
+done

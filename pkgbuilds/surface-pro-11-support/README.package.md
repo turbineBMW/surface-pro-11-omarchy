@@ -23,6 +23,7 @@ The package contains no Microsoft or Qualcomm DSP firmware; `qcom-firmware-extra
   - Detached, the touchpad works over Bluetooth, where libinput counts it as an external touchpad and turns palm rejection off. A libinput quirk marks it as the touchpad below a keyboard's keys, which turns palm rejection back on. Like libinput's entry for the attached touchpad, it also hides the right button the clickpad advertises.
 - **Lid**: with the cover open, the lid line shows a false edge just after the SoC powers down in suspend, which wakes the machine at once. A sleep hook arms lid wake only when the machine suspends with the cover closed, so opening the cover still wakes it; the power button wakes it either way.
 - **Pen and touch**: the touch controller resets its firmware on resume, and a running iptsd never recovers. A sleep hook stops iptsd before suspend and starts it again after.
+- **External monitor brightness**: a user service, `surface-pro-11-brightness-sync`, sets every external monitor with a DDC channel to the screen's brightness, as a percentage of each monitor's own maximum, whenever the screen's brightness changes or a monitor is connected. It reacts to udev events and never polls. It talks DDC/CI through `/usr/lib/surface-pro-11-support/ddc-vcp` rather than ddcutil, which on the Snapdragon's DisplayPort AUX channel drops or garbles most requests: msm's `dp_aux` never ends an I2C write with a STOP, so the monitor often ignores the request, and its EDID workaround writes a stray byte to the DDC/CI address before reads. `ddc-vcp` forces the STOP with a one-byte EDID read after each write, resets the workaround's offset, and reads every write back. ddcutil, a dependency, provides `i2c-dev` and the udev rule that gives the session access to the monitor's bus. It is on for every user; `systemctl --user mask surface-pro-11-brightness-sync` turns it off, and `BRIGHTNESS_SYNC_MIN` and `BRIGHTNESS_SYNC_MAX` (`systemctl --user edit`) clamp the range.
 
 Every service and sleep hook checks for the `microsoft,denali-oled` device tree and does nothing elsewhere.
 
@@ -34,6 +35,7 @@ Every service and sleep hook checks for the `microsoft,denali-oled` device tree 
 - Battery udev rule and the patched upower: drop once UPower honours a hide property upstream (the patch is offered there), or once the kernel's Surface Pro 11 device list no longer adds the Aggregator battery and charger next to the battery manager's.
 - Touchpad hook: drop once the kernel keeps the attached touchpad in touchpad mode across resume.
 - Touchpad quirk: drop once libinput carries an entry for the Flex Keyboard over Bluetooth.
+- `ddc-vcp`: drop once msm's `dp_aux` sends a STOP after I2C writes and limits its EDID workaround to the EDID address, so stock ddcutil works; the brightness service can then call ddcutil.
 
 ## Licences
 

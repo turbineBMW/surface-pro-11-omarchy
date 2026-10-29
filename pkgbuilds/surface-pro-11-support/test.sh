@@ -289,6 +289,15 @@ for unit in surface-pro-11-flex-autopair surface-pro-11-flex-reconnect; do
     fail "attaching or detaching the keyboard starts $unit"
 done
 
+# External monitor brightness: the DDC helper and the user service.
+python -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' "$package_dir/ddc-vcp" ||
+  fail "ddc-vcp is valid Python"
+bash -n "$package_dir/surface-pro-11-brightness-sync" ||
+  fail "surface-pro-11-brightness-sync is valid Bash"
+grep -qx 'ConditionFirmware=device-tree-compatible(microsoft,denali-oled)' \
+  "$package_dir/surface-pro-11-brightness-sync.service" ||
+  fail "surface-pro-11-brightness-sync runs only on the Surface Pro 11 OLED"
+
 # Touchpad: after resume a job of its own puts the attached keyboard's touchpad
 # back in touchpad mode. systemd-run is a stub that records what it was asked to
 # run.

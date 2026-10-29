@@ -1,0 +1,135 @@
+#!/usr/bin/python3 -I
+# Get or set a DDC/CI VCP feature on an i2c bus, reliably over the Snapdragon
+# (msm) DP AUX channel where stock ddcutil is flaky.
+#
+#   ddc-vcp BUS get CODE                prints the current value
+#   ddc-vcp BUS set CODE VALUE          sets it and verifies by reading it back
+#   ddc-vcp BUS set-percent CODE PCT    sets PCT percent of the monitor's
+#                                       maximum, verified the same way
+#
+# Two msm dp_aux bugs get in the way (drivers/gpu/drm/msm/dp/dp_aux.c):
+#  - I2C writes never end with a STOP, so the monitor often ignores a request
+#    and keeps handing out its previous reply buffer.
+#  - The EDID offset workaround runs for every I2C read: unless its running
+#    offset is a multiple of 128 it first writes a stray byte to the target,
+#    which for DDC/CI (0x37) is a garbage request.
+# A short EDID read after each write forces the STOP, and writing offset 0 to
+# the EDID address (0x50) zeroes the driver's counter. Both are harmless on
+# other drivers.
+
+import fcntl
+import os
+import sys
+import time
+
+I2C_SLAVE = 0x0703
+DDC_ADDR = 0x37
+EDID_ADDR = 0x50
+ATTEMPTS = 5
+
+
+def usage():
+    sys.exit("usage: ddc-vcp BUS get CODE | ddc-vcp BUS set CODE VALUE"
+             " | ddc-vcp BUS set-percent CODE PCT")
+
+
+class Bus:
+    def __init__(self, bus):
+        path = bus if bus.startswith("/") else f"/dev/i2c-{bus}"
+        self.fd = os.open(path, os.O_RDWR)
+
+    def _addr(self, addr):
+        fcntl.ioctl(self.fd, I2C_SLAVE, addr)
+
+    def _reset_edid_offset(self):
+        self._addr(EDID_ADDR)
+        os.write(self.fd, b"\0")
+
+    def _stop(self):
+        self._reset_edid_offset()
+        os.read(self.fd, 1)
+
+    def send(self, payload):
+        pkt = bytes([0x51, 0x80 | len(payload)]) + bytes(payload)
+        ck = 0x6E
+        for b in pkt:
+            ck ^= b
+        self._addr(DDC_ADDR)
+        os.write(self.fd, pkt + bytes([ck]))
+        self._stop()
+
+    def recv(self, n=16):
+        self._reset_edid_offset()
+        self._addr(DDC_ADDR)
+        reply = os.read(self.fd, n)
+        self._stop()
+        return reply
+
+    def get(self, code):
+        self.send([0x01, code])
+        time.sleep(0.05)
+        r = self.recv()
+        ck = 0x50
+        for b in r[:10]:
+            ck ^= b
+        if r[:3] != b"\x6e\x88\x02" or r[4] != code or r[10] != ck:
+            return None
+        if r[3] != 0:
+            raise ValueError(f"monitor does not support VCP 0x{code:02x}")
+        return r[8] << 8 | r[9], r[6] << 8 | r[7]
+
+    def set(self, code, value):
+        self.send([0x03, code, value >> 8, value & 0xFF])
+        time.sleep(0.05)
+
+
+def read(dev, code):
+    for _ in range(ATTEMPTS):
+        reply = dev.get(code)
+        if reply is not None:
+            return reply
+        time.sleep(0.1)
+    return None
+
+
+def write(dev, code, value):
+    for _ in range(ATTEMPTS):
+        dev.set(code, value)
+        time.sleep(0.05)
+        reply = dev.get(code)
+        if reply is not None and reply[0] == value:
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def main():
+    if len(sys.argv) < 4:
+        usage()
+    bus, op = sys.argv[1], sys.argv[2]
+    code = int(sys.argv[3], 0)
+    dev = Bus(bus)
+
+    if op == "get" and len(sys.argv) == 4:
+        reply = read(dev, code)
+        if reply is not None:
+            print(reply[0])
+            return
+    elif op == "set" and len(sys.argv) == 5:
+        if write(dev, code, int(sys.argv[4], 0)):
+            return
+    elif op == "set-percent" and len(sys.argv) == 5:
+        percent = max(0, min(100, int(sys.argv[4], 0)))
+        reply = read(dev, code)
+        if reply is not None and write(dev, code, (percent * reply[1] + 50) // 100):
+            return
+    else:
+        usage()
+    sys.exit(f"ddc-vcp: no valid reply on bus {bus}")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError) as e:
+        sys.exit(f"ddc-vcp: {e}")
