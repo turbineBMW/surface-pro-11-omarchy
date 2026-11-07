@@ -63,7 +63,7 @@ omarchy_blobs() {
   og ls-tree -r HEAD -- "$dir" | awk '{ print $3 }' | sort -u >"$2"
   {
     cat "$2"
-    og log --raw --no-abbrev --format= HEAD -- "$dir" | awk '{ print $3; print $4 }'
+    og log --raw --no-renames --no-abbrev --format= HEAD -- "$dir" | awk '{ print $3; print $4 }'
   } | grep -v '^0*$' | sort -u
 }
 
