@@ -121,7 +121,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Compare with Omarchy edge
         run: |
-          git clone --depth 1 https://github.com/omacom/omarchy-pkgs "$RUNNER_TEMP/omarchy-pkgs"
+          # Blobless: check-upstream reads the recipes' history, not just HEAD.
+          git clone --filter=blob:none https://github.com/omacom/omarchy-pkgs "$RUNNER_TEMP/omarchy-pkgs"
           image=ghcr.io/omacom/omarchy-pkg-builder:$("$RUNNER_TEMP/omarchy-pkgs/bin/builder-image" key --arch aarch64 --mirror edge)
-          # Fails when a package has caught up, so the maintainer is told.
-          docker run --rm -v "$PWD:/repo:ro" "$image" bash -c 'cd /repo && bin/check-upstream edge'
+          # Fails only when Omarchy has published every fix a package here
+          # carries, so the maintainer is told to retire it. A package that
+          # is merely behind Omarchy's version gets a warning.
+          docker run --rm -v "$PWD:/repo:ro" -v "$RUNNER_TEMP/omarchy-pkgs:/omarchy-pkgs:ro" \
+            -e OMARCHY_PKGS=/omarchy-pkgs "$image" bash -c 'cd /repo && bin/check-upstream edge'

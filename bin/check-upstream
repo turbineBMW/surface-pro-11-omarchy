@@ -1,13 +1,34 @@
 #!/bin/bash
-# Compare each package here with the same package in Omarchy's repository.
+# Compare each package here with the same package in Omarchy.
 #
 #   bin/check-upstream [CHANNEL]    channel: edge (default), rc or stable
 #
-# Packages here use the pkgrel Omarchy will give the change plus ".N"
-# (7.3-13.1 is our first build of what Omarchy will publish as 7.3-13). Once Omarchy
-# publishes that base version or a newer one, the package is listed as
-# "caught up": check that Omarchy's build has every fix ours carries, then
-# delete its directory here. Exits 1 if any package has caught up.
+# A package carried here is caught up once Omarchy's recipe has every fix
+# ours carries, not once Omarchy's version passes ours: Omarchy publishes new
+# pkgrels of a package (several a day for the kernel) whether or not they
+# hold our changes. So each local source file of ours (patch, config, hook)
+# is looked up in omarchy-pkgs' recipe of the same name:
+#
+#   - in its current recipe: Omarchy has it
+#   - only in its history: Omarchy had it and has changed it since; we are
+#     behind, and a rebase picks the change up
+#   - never: a fix only we carry
+#
+# States:
+#   carried                       we carry fixes Omarchy lacks, listed below it
+#   carried, behind               the same, and Omarchy has published a newer
+#                                 version than our base: rebase when convenient
+#                                 (a warning in CI, not a failure)
+#   landing                       omarchy-pkgs has all our fixes, not published yet
+#   CAUGHT UP: check, then retire Omarchy has published every fix ours carries:
+#                                 check its build (fixes we leave out of Omarchy's
+#                                 set, like the kernel's 2436, are not seen here),
+#                                 then delete the package's directory
+#
+# Exits 1 only if a package has caught up.
+#
+# OMARCHY_PKGS can point at a clone of omarchy-pkgs with its history (a
+# blobless clone is enough); otherwise one is made here.
 set -euo pipefail
 
 root=$(realpath "${BASH_SOURCE[0]%/*}/..")
@@ -27,30 +48,86 @@ for desc in "$tmp"/db/*/desc; do
   upstream[$name]=$version
 done
 
+pkgs=${OMARCHY_PKGS:-}
+if [[ -z $pkgs ]]; then
+  pkgs=$tmp/omarchy-pkgs
+  git clone -q --filter=blob:none --no-checkout https://github.com/omacom/omarchy-pkgs "$pkgs"
+fi
+# CI mounts the clone read-only and owned by another user.
+og() { git -c safe.directory='*' -C "$pkgs" "$@"; }
+
+# Every blob omarchy-pkgs' recipe $1 has now or has ever had, one per line,
+# and the ones it has now in $2.
+omarchy_blobs() {
+  local dir=pkgbuilds/$1
+  og ls-tree -r HEAD -- "$dir" | awk '{ print $3 }' | sort -u >"$2"
+  {
+    cat "$2"
+    og log --raw --no-abbrev --format= HEAD -- "$dir" | awk '{ print $3; print $4 }'
+  } | grep -v '^0*$' | sort -u
+}
+
 caught_up=0
 printf '%-28s %-14s %-14s %s\n' PACKAGE OURS OMARCHY STATE
 for dir in "$root"/pkgbuilds/*/; do
+  pkgbase=$(basename "$dir")
   # makepkg wants its build and output directories writable even just to
   # print .SRCINFO, and CI mounts the repository read-only.
-  info=$(cd "$dir" && tmp=$(mktemp -d) && BUILDDIR=$tmp PKGDEST=$tmp SRCDEST=$tmp SRCPKGDEST=$tmp LOGDEST=$tmp makepkg --printsrcinfo)
+  info=$(cd "$dir" && t=$(mktemp -d -p "$tmp") && BUILDDIR=$t PKGDEST=$t SRCDEST=$t SRCPKGDEST=$t LOGDEST=$t makepkg --printsrcinfo)
   epoch=$(sed -n 's/^\tepoch = //p' <<<"$info" | head -1)
   pkgver=$(sed -n 's/^\tpkgver = //p' <<<"$info" | head -1)
   pkgrel=$(sed -n 's/^\tpkgrel = //p' <<<"$info" | head -1)
   ours=${epoch:+$epoch:}$pkgver-$pkgrel
   base=${epoch:+$epoch:}$pkgver-${pkgrel%%.*}
-  while read -r name; do
+  mapfile -t names < <(sed -n 's/^pkgname = //p' <<<"$info")
+
+  # Only a package Omarchy also publishes, under a .N pkgrel, is carried.
+  carried=()
+  analysed=0
+  for name in "${names[@]}"; do
+    [[ -n ${upstream[$name]:-} && $pkgrel == *.* ]] || continue
+    analysed=1
+    if [[ -z $(og ls-tree HEAD -- "pkgbuilds/$pkgbase") ]]; then
+      carried=("(omarchy-pkgs has no pkgbuilds/$pkgbase to compare with)")
+      break
+    fi
+    known=$(omarchy_blobs "$pkgbase" "$tmp/current")
+    while read -r file; do
+      [[ -f $dir/$file ]] || continue
+      blob=$(git hash-object "$dir/$file")
+      grep -qx "$blob" <<<"$known" || carried+=("$file")
+    done < <(sed -n -e 's/^\tsource\(_[a-z0-9_]*\)\? = //p' -e 's/^\t\(install\|changelog\) = //p' <<<"$info" |
+               grep -v '://' | sed 's/^.*:://' | sort -u)
+    break
+  done
+
+  behind=
+  for name in "${names[@]}"; do
     theirs=${upstream[$name]:-}
     if [[ -z $theirs ]]; then
       state="ours only"
     elif [[ $pkgrel != *.* ]]; then
       state="ours only (no .N pkgrel)"
+    elif (( ${#carried[@]} > 0 )); then
+      if (( $(vercmp "$theirs" "$base") >= 0 )); then
+        state="carried, behind"
+        behind=$theirs
+      else
+        state="carried"
+      fi
     elif (( $(vercmp "$theirs" "$base") >= 0 )); then
       state="CAUGHT UP: check, then retire"
       caught_up=1
     else
-      state="carried"
+      state="landing"
     fi
     printf '%-28s %-14s %-14s %s\n' "$name" "$ours" "${theirs:--}" "$state"
-  done < <(sed -n 's/^pkgname = //p' <<<"$info")
+  done
+  if (( analysed && ${#carried[@]} > 0 )); then
+    printf '    carries: %s\n' "${carried[@]}"
+  fi
+  if [[ -n $behind ]]; then
+    echo "::warning title=$pkgbase is behind Omarchy::Omarchy publishes $behind, ours is $ours. We still carry ${#carried[@]} fix(es) Omarchy lacks, so this is not a retirement: rebase onto Omarchy's recipe when convenient."
+  fi
 done
 exit $caught_up

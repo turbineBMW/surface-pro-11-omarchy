@@ -98,10 +98,19 @@ BitLocker-encrypted) Windows partition. The image itself carries no firmware.
 A carried package uses the pkgrel Omarchy will give the change, plus `.N`:
 `7.3-13.1` is our first build of the kernel Omarchy will publish as `7.3-13`
 (its `7.3-12` plus 2217, omarchy-pkgs#1698), not a build on top of Omarchy's
-`7.3-12`. When Omarchy publishes `7.3-13` or later, `bin/check-upstream`
-reports the package as caught up. Once Omarchy's build has every fix ours
-carries, the package's directory is deleted here and pacman moves to
-Omarchy's next release.
+`7.3-12`.
+
+Omarchy's version alone doesn't say whether it has our fixes: it publishes
+new kernel pkgrels several times a day, with or without them. So
+`bin/check-upstream` looks up each local source file of a carried package
+(patches, config, hooks) in omarchy-pkgs' recipe and its history, and lists
+those Omarchy has never had. While there are any, the package is "carried",
+or "carried, behind" once Omarchy publishes a newer version than our base,
+which is a cue to rebase, not to retire. When Omarchy has published every
+one of them, the package is "caught up": check Omarchy's build (fixes we
+make by leaving one of Omarchy's patches out, like the kernel's 2436, are not
+seen by the check), then delete the package's directory here, and pacman
+moves to Omarchy's next release.
 
 ## Maintaining
 
@@ -117,6 +126,7 @@ rebuilding packages whose version changed, and publishes the release
 `aarch64`, which is the repository pacman downloads from. It needs the
 `SIGNING_KEY` secret (armored private signing key, no passphrase) and the
 `SIGN_KEY` variable (its fingerprint). A daily job fails when Omarchy has
-caught up with a carried package.
+published every fix a carried package carries, and warns when a carried
+package is behind Omarchy's version.
 
 What comes next is in [docs/ROADMAP.md](docs/ROADMAP.md).
