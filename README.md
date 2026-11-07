@@ -71,7 +71,7 @@ once Omarchy ships the same fixes.
 
 | Package | Version | Upstream | Adds |
 |---|---|---|---|
-| `linux-omarchy` | 7.3-13.1 | [omarchy-pkgs#1698](https://github.com/omacom/omarchy-pkgs/pull/1698), which Omarchy will publish as `7.3-13` (its `7.3-12` plus 2217), plus 2221 and the `quiet-efivarfs` initramfs hook, which no Omarchy PR has yet, and without 2436 | Suspend no longer hard-locks when it follows a resume closely (2217, keeps the Surface EC's UART link alive), audio over DisplayPort to a monitor or dock (2221), no efivarfs mount error flashing during boot, speakers that play (2436 silences them on the Surface Pro 11) |
+| `linux-omarchy` | 7.3-25.1 | [omarchy-pkgs#1698](https://github.com/omacom/omarchy-pkgs/pull/1698), which Omarchy will publish as `7.3-25` (its `7.3-24` plus 2217), plus 2221 and the `quiet-efivarfs` initramfs hook, which no Omarchy PR has yet | Suspend no longer hard-locks when it follows a resume closely (2217, keeps the Surface EC's UART link alive), audio over DisplayPort to a monitor or dock (2221), no efivarfs mount error flashing during boot |
 | `surface-pro-11-support` | 1-5.2 | [omarchy-pkgs#1528](https://github.com/omacom/omarchy-pkgs/pull/1528) and master's 1-4 (UCM in its own folder, compressed firmware), then pen pairing, speakers, DisplayPort audio and monitor brightness | Touchpad mode after resume, Bluetooth palm rejection, Slim Pen pairing, Windows speaker tuning, audio over DisplayPort, external monitor brightness following the screen's |
 | `omarchy-surface-pro-11` | 1-6 | [omarchy#14390](https://github.com/omacom/omarchy/pull/14390) | The board setup a #14390 install does: OLED device tree pin, panel and keyboard before disk unlock, light sensor |
 | `surface-pro-11-plugins` | 1-11 | | Omarchy shell plugins, switched on once per user: lock screen with face unlock, battery charge-limit toggle in the Power panel, ambient-light auto-brightness in the Display panel, rounded screen corners, and windows rounded to match the display in every theme |
@@ -96,9 +96,9 @@ BitLocker-encrypted) Windows partition. The image itself carries no firmware.
 ## Versions
 
 A carried package uses the pkgrel Omarchy will give the change, plus `.N`:
-`7.3-13.1` is our first build of the kernel Omarchy will publish as `7.3-13`
-(its `7.3-12` plus 2217, omarchy-pkgs#1698), not a build on top of Omarchy's
-`7.3-12`.
+`7.3-25.1` is our first build of the kernel Omarchy will publish as `7.3-25`
+(its `7.3-24` plus 2217, omarchy-pkgs#1698), not a build on top of Omarchy's
+`7.3-24`.
 
 Omarchy's version alone doesn't say whether it has our fixes: it publishes
 new kernel pkgrels several times a day, with or without them. So
@@ -108,8 +108,7 @@ those Omarchy has never had. While there are any, the package is "carried",
 or "carried, behind" once Omarchy publishes a newer version than our base,
 which is a cue to rebase, not to retire. When Omarchy has published every
 one of them, the package is "caught up": check Omarchy's build (fixes we
-make by leaving one of Omarchy's patches out, like the kernel's 2436, are not
-seen by the check), then delete the package's directory here, and pacman
+make by leaving one of Omarchy's patches out are not seen by the check), then delete the package's directory here, and pacman
 moves to Omarchy's next release.
 
 ## Maintaining

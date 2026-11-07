@@ -22,7 +22,7 @@
 #   landing                       omarchy-pkgs has all our fixes, not published yet
 #   CAUGHT UP: check, then retire Omarchy has published every fix ours carries:
 #                                 check its build (fixes we leave out of Omarchy's
-#                                 set, like the kernel's 2436, are not seen here),
+#                                 set are not seen here),
 #                                 then delete the package's directory
 #
 # Exits 1 only if a package has caught up.
