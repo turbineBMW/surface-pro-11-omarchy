@@ -9,7 +9,7 @@
 pkgbase=linux-omarchy-aarch64
 _kernel=linux-omarchy
 pkgver=7.3
-pkgrel=25.1
+pkgrel=25.2
 # NVIDIA's open kernel modules ship prebuilt as $_kernel-nvidia-open, built in
 # this recipe so every kernel lands with modules for it and nobody compiles
 # them through DKMS on a kernel update. Keep this version and the patches in
@@ -506,6 +506,76 @@ source=(
   2721-dt-bindings-arm-qcom-Add-the-Anduril-BlueChip.patch
   2722-arm64-dts-qcom-glymur-Add-the-Anduril-BlueChip.patch
   2723-firmware-qcom-scm-Allow-QSEECOM-on-the-Anduril-BlueC.patch
+  3300-media-qcom-camss-use-fwnode_graph_for_each_endpoint_.patch
+  3301-phy-core-Add-phy_get_by_of_node.patch
+  3302-phy-core-Add-devm_phy_get_by_of_node.patch
+  3303-media-qcom-camss-vfe-17x-Fix-write-master-buffer-don.patch
+  3304-media-qcom-camss-vfe-17x-Fix-write-master-selection-.patch
+  3305-media-qcom-camss-vfe-Fix-VFE-reset-while-another-lin.patch
+  3306-media-qcom-camss-Add-gcc_axi_hf-to-8775p-VFE-lite-cl.patch
+  3307-media-qcom-camss-Add-PM-clock-support-and-integrate-.patch
+  3308-media-qcom-camss-Add-PM-clock-definitions-for-QCM229.patch
+  3309-media-qcom-camss-Drop-top_ahb-ahb-axi-from-QCM2290-s.patch
+  3310-media-qcom-camss-Report-hardware-version-via-media-c.patch
+  3311-dt-bindings-media-qcom-x1e80100-camss-Make-vdd-csiph.patch
+  3312-media-qcom-camss-Add-Glymur-compatible.patch
+  3313-phy-qcom-mipi-csi2-Add-a-CSI2-MIPI-DPHY-driver.patch
+  3314-media-qcom-camss-Add-support-for-PHY-API-devices.patch
+  3315-media-qcom-camss-Use-data-lanes-starting-at-1-for-ne.patch
+  3316-media-qcom-camss-Drop-icc_res_qcs8300-resource-table.patch
+  3317-media-qcom-camss-Drop-csiphy_res_8300-phy-resource-t.patch
+  3318-device-property-Introduce-fwnode_graph_for_each_endp.patch
+  3319-media-qcom-camss-log-CSID-and-VFE-register-writes-un.patch
+  3320-phy-core-add-PHY_MODE_MIPI_CPHY.patch
+  3321-phy-qcom-mipi-csi2-support-C-PHY-links-on-x1e80100.patch
+  3322-media-qcom-camss-configure-C-PHY-links-through-the-P.patch
+  3323-arm64-dts-qcom-hamoa-add-CSI2-PHY-nodes.patch
+  3324-arm64-dts-qcom-denali-connect-the-cameras-through-th.patch
+  3325-media-qcom-camss-vfe-look-up-the-line-only-after-val.patch
+  3326-media-qcom-camss-x1e80100-run-the-IFE-pixel-path-to-.patch
+  3327-media-qcom-camss-vfe-scale-the-NOC-clock-by-bytes-fo.patch
+  3328-media-qcom-camss-x1e80100-log-pixel-path-state-at-st.patch
+  3329-media-qcom-camss-x1e80100-pixel-path-bring-up-knobs-.patch
+  3330-media-qcom-camss-x1e80100-optional-full-IFE-window-d.patch
+  3331-media-qcom-camss-x1e80100-CSID-pixel-path-bring-up-k.patch
+  3332-media-qcom-camss-x1e80100-program-the-IFE-output-sta.patch
+  3333-arm64-dts-qcom-hamoa-describe-the-whole-IFE-register.patch
+  3334-media-qcom-camss-x1e80100-program-demosaic-colour-tr.patch
+  3335-media-qcom-camss-x1e80100-white-balance-gamma-and-bl.patch
+  3336-media-qcom-camss-video-size-the-image-clamp-for-pack.patch
+  3337-media-qcom-camss-csid-handle-every-source-pad-crop-G.patch
+  3338-media-qcom-camss-vfe-white-balance-and-black-level-c.patch
+  3339-media-qcom-camss-x1e80100-take-the-black-level-off-i.patch
+  3340-media-i2c-imx681-start-with-a-full-frame-of-exposure.patch
+  3341-media-qcom-camss-x1e80100-hold-the-clock-gating-over.patch
+  3342-media-qcom-camss-x1e80100-program-the-colour-correct.patch
+  3343-media-qcom-camss-x1e80100-scale-the-PIX-output-with-.patch
+  3344-media-qcom-camss-x1e80100-scale-the-chroma-from-the-.patch
+  3345-media-qcom-camss-register-the-media-device-once-the-.patch
+  3346-media-qcom-camss-gamma-table-and-colour-matrix-contr.patch
+  3347-media-qcom-camss-lens-shading-mesh-control-on-the-PI.patch
+  3348-media-qcom-camss-take-the-pedestal-off-inside-the-le.patch
+  3349-media-qcom-camss-do-not-subtract-the-black-level-twi.patch
+  3350-media-qcom-camss-Bayer-noise-reduction-ABF-on-the-PI.patch
+  3351-arm64-dts-qcom-x1e80100-Add-ICP-BPS-IPE-nodes.patch
+  3352-media-qcom-camss-Launch-ICP-from-CAMSS.patch
+  3353-media-qcom-camss-qcom-icp-Add-minimal-ICP-driver-wit.patch
+  3354-media-qcom-camss-qcom-icp-bps-Add-initial-v4l2-m2m-B.patch
+  3355-media-qcom-camss-qcom-icp-ipe-Add-initial-v4l2-m2m-I.patch
+  3356-media-qcom-camss-Switch-on-ICP-and-BPS-as-make-optio.patch
+  3357-media-qcom-camss-icp-add-the-HFI-queue-layer-and-bui.patch
+  3358-arm64-dts-qcom-x1-microsoft-denali-ICP-firmware-name.patch
+  3359-media-qcom-camss-icp-use-the-ICP-v2-interrupt-regist.patch
+  3360-LAB-media-qcom-camss-icp-debugfs-to-send-raw-HFI-pac.patch
+  3361-media-qcom-camss-icp-reset-the-cores-and-place-HFI-m.patch
+  3362-LAB-media-qcom-camss-icp-lab-buffers-in-IO-region-1-.patch
+  3363-LAB-media-qcom-camss-icp-mirror-the-HFI-regions-into.patch
+  3364-LAB-media-qcom-camss-icp-expose-the-firmware-uncache.patch
+  3365-media-imx681-match-the-validated-ISP-sensor-gain-int.patch
+  3366-media-imx681-import-the-validated-frame-length-and-t.patch
+  3367-media-camss-icp-import-the-validated-DMA-mapping-and.patch
+  3368-media-camss-import-the-validated-C-PHY-clock-and-pai.patch
+  3369-arm64-dts-qcom-x1e80100-do-not-let-the-ICP-BPS-and-IPE-ho.patch
   x1p42100-acer-aspire-14-ai.json
   x1p42100-acer-aspire-16-ai.json
   x1p42100-microsoft-surface-pro-12in.json
@@ -535,6 +605,7 @@ source=(
   nvidia-0009-report-usb-c-connectors-as-displayport.patch
   initcpio-install-quiet-efivarfs
   mkinitcpio-quiet-efivarfs.conf
+  qcom-camss-icp.conf
 )
 source_aarch64=(config.aarch64)
 validpgpkeys=(
@@ -1062,6 +1133,76 @@ sha256sums=('87363c24f10e06321eb362765521094e94471f6bff8bce2d6b3e40f39f004953'
             'e97d1d6c0a8cd6af32339a316b8f0b9e8dbccc53ec9fb7051038eb1c0830cdb4'
             '659db1a3ff670fc0fd54f747813a34a3480f14aab02d9a314f60a00b75cf42e7'
             '3b109a7628ce4e369175fd8292866f25d1e323ee9d560d72444a175ba22ee557'
+            '790f7bfefb68fd67ceab2754fe767a61a6521c0e08a74f5feb9edafc072b0858'
+            'ffeebe6fd12b48f293c23484536dad25eeb370506f3834c9f315076f42008875'
+            'f66b8376245eaee83678ef877700c5447b191b12b18427454a06b4c3a89a97b8'
+            'c9ea5791acabde7849968d653682f4d1331b49bc79ed4b9cbce4d2c48e7b0fdb'
+            '9d815869d7042027f0f0c19781daa7523bfbd3ff315eeb6245ec7a4018a794d5'
+            '3475b7e9d88251ca09580e5e0f4995d9680b445fe245a3390f0b892915d675ad'
+            '8a0a4c8419d8327778f73e7b4cedc4c39da5c7793fe4e6036f2142565c76793c'
+            '108367ddcc8b406acb5e75e642cf97ee1495950394f4bd7c6b8bd2a0ddd3fffc'
+            'dc1c0c50bc62d792da4e852e742a3e2a3cd6b7cc589a9d150c55c60cd6a9f6a9'
+            'affc1883b71ab79b1271fd9bd32264c16426760b0ceaefa46b4e3dfd5228e33c'
+            'c5f32d205c86eca2f36286e4739c22dcd9a402f2085c166dac00962f0cd09e84'
+            '728ed4c33c91209bfc7677b07b8bec1745ebb995d2ac86d1c4e22a3df84a2952'
+            'ac859f7a5a34ac8d18be21e9bfe0c5ed9a8523707891d487708e58531f98353c'
+            '2410fe3d805ad791481eb6d6dfe707a2e8f41f68c547ead47b133b247a36a4b7'
+            '97615f87ba8478fba18007c605f9d049167e21555a5ad01e0989976fceffb9a6'
+            'a715ff8ccae5d24db2df1ae8724b33b88d7e5cdc659827bf101f0c330f7c3d34'
+            'c4abc333f82751fcd6f8df93b132d8b20728d609312190f8933b28c9de53d97d'
+            'cf5e2a09c26f4a0ef14e3864a075b4bead81f202b7badcc8171e93de19a8bdbc'
+            'f0c8eb24e4903bead899305f6f48e522c2396d5b29160e3579f09de2354a5636'
+            'f04517920e73f10447b2a5c1d059ac890150183f39e19086dc4df78aeb0f9cfe'
+            '738643bc1757d7cf422908d714f63692f8549fbeceee3344e2667d34e2e954a2'
+            '5de2402297f5466cae0448d116ac8ef2d9d6c77cf78874aac019a9e486b8aec0'
+            '5314c862c452e56b54f7a7eb5979f2de302eb01e4aad1a8fe447a2fc9a8eb203'
+            '98b83334c3f1116a5121c415e9242bd3f1c0fd8d7d683cb2a1b55e1ea4bf6a77'
+            'ca1f2ddc9fae2df2925bff22c372c3e5a1d48bab70ca4107ff2cd25b4407e15b'
+            '9c5cca3a626725d9c70a591ce792ea783c79641b71e2791ede39225ed1bc219c'
+            'f6de32d0a7786bf491accd088e8dcb68b85fe99cd240bebaed258fc4f56d19e1'
+            '79f5fb823c6ca115795448f1f809b1095e7db34c32baa7cb0fa8b4d2aee3b265'
+            '4fa79b1af7803428d09b7e88ff1d6b9076b99e164ca2b3869cdd14b28cdc1468'
+            '4259a36cbef96584930dad2909f0ada83885139b1ce4a6a21313a6785f5c2005'
+            'b43ac661f8488cfe74b36e9efeab8b01df379b45ef10a5aec01e01751556aba7'
+            'ff8d85efa5d7b444fd3be811bb3532cde05ba1f46c0eb16206519503dad786ad'
+            '3fa85984ba32a3327af2ac4416bbff7474bd85c0f8178e15a4f3999ddb49088c'
+            '1311a267039bd397fa51ce3d499ecca0bdd6d83a90e41c3682fe35b2bb70a2b7'
+            '01aa954baeeba7ef2b842091da4741221e8bcfdbf5c6dd4832078e07a3394aaf'
+            'a9afee7ff5656ded9e766d1b8063b749d880ca6ac5d9b7049375331501e6285a'
+            '89867a1ccaafa238704fb8698034fe856e1e274ce903a03f93e1de4c72cab330'
+            '03a826d220e5563f40c21b15b79253cfaef17cace56c349d62e8183328e252bc'
+            '7fc3a1205ee0432ce9763e4594e2e54e4238cd25079366be0225c40f1043b8ab'
+            '11f4304eabb400ff22ddfd776e52f380ce53cf1b157c5898f933744c6a9955be'
+            '7de08f56284bd1c59601db29ecc3878bf467f4e5660913b32bc2ec4291d018fc'
+            '073ce4af563073695b7fb63f589665554d049bea58142b6f3b52f2e2a54d82fd'
+            'a3ae867e491c92c9389edf458329e46925896800eec08cee865110e9202c89c4'
+            '5711edf4d6e385284ba6ada3f763e0317f88678171a7484bca56d0c2a09bac1c'
+            '2918a9a5c6515148e094897445af51f98d8e7bdcfcf960d21133640d598376e6'
+            'a6364b1203a03c64b701ab9f7fb1a0601a698e3fbe034d9a7fdaf581bca74a2b'
+            '9c6b837a329e5580ededba6abbe4ce4a2512fa6f53fbef3f340aa5c39adc0a6c'
+            '2b633902e1f9bc04b2bcb6ae7192ebf93d62cbe1e75343e6c623cb93df0dbf1d'
+            'de161f3f7e45ecc84c99a606c492abde5f69ba27329376e0698b610c23a9274d'
+            'b0f57a04199329093cb3a687793deec3cead1bd92a67975b47e09a7911177a0a'
+            '9fc520e5cd44f9d76f113abfd38c2e560153db0364acea5b223ce8a6c30bae0a'
+            '1d7f5007f677214d3505e7d3d6cff44d9c2c5cf78035145f14ac8f6e3d380852'
+            'cf1ff242be505d739e485d4cacc84193a8ae9ca9982fe016cb4bdfd7e58c5021'
+            'eb3716f57339355b90cfd8dfc2cefc92aad9c3c20482d421db005dcb4d2b967c'
+            'e238586971d94d7c946eaca9bf11607ad8537e647eab709940ee6f7f380f7ad1'
+            '91ada81a22e59f597189471bd96411fd9de3bb2ba66e5812a930e7abf3c11a11'
+            '859a34451aafdfa679d46f197748849e8b6892897b8221e8ecd7937c8de84d80'
+            'e71ad993d514c76bb297143099d7772bf270f45eab3710ed4831b174cbd4a0bc'
+            '1b38e11fd2a423cb899f245b4ac18e314c1e9a2da573c521cfbd2ff134ada5aa'
+            '603eb386c7e9a9dac3be54d6ba9d09f1226b5fcf1e9bafd7e5cc4a2729994be9'
+            'e911e5fddb501a72486dede46475abedf5004c4a8fd33353ba6276f3eaa4091b'
+            '2571d7a0bc10985f0ca4c01de70e3bd0ebb3edecfd61e968a58cce53622743cc'
+            'd611e59abec4f2045d3b63a9367a71e7499421c29c2012ae3b3e88430b9d10d1'
+            '1661316dc1e840af1c14e4f1f6ba6c96780a50e58d022e2f56749c28e8e47c78'
+            '8f02d296d96cc5e4cb52c2952de0f9c28289c5e3191b52bd78694c7ea182b03e'
+            '62337bc5e8faf2e37106a3dce340f2064096f13525fa5171f7ec0a5b842d06f3'
+            '27e03339ac510cdad5b9b384f35cd46f3a0ddf1ac35550e2748038aeb355d7e3'
+            '5d5c4b6e0d713e45a5393f2ca5c4045d0f353a0731693cf17ca09e2c647ce9fa'
+            '021ddb31f3bc3e21d0820d92ccade35a34e6f6a7d660191f68418f69da731133'
+            '92233ca967695fb7efc7cc6843ea4e867c86402b83cd27b569e74c8eb6681ab6'
             '726d29ea34b625a5e7231e608153eed6401aaf759020a31bcabb6e205601e0e9'
             'ef79637ecae1b3738a60988f4f434c4696f7ca80e12f91302dc0d55b514dd3ca'
             '74e289f2b3c057c84fb7755c16e2b7089994ffbb48d0da7af7363022ee06ebc8'
@@ -1087,8 +1228,9 @@ sha256sums=('87363c24f10e06321eb362765521094e94471f6bff8bce2d6b3e40f39f004953'
             '54c6946021f3e49ca4dc9744898b6f7691ab7191592f76e4abe14cb1a4c0c03e'
             '1832f3d5393980ff380cd0660601a8d16c0a7870b79caa1cdadbef7cd0aaf592'
             '14de42640f9ffb51bf6696cdc546a84899a7915220126b58c2a7d33fbcd7ede8'
-            '5c36001aac36fa73707b84e3a4ad3afefdfcc712d5a919df3e65a9ec2d6454d2')
-sha256sums_aarch64=('0cfae4d38ccf6267fef6ecc15eadcbc155dcf123104c1f9611802ff906bb0207')
+            '5c36001aac36fa73707b84e3a4ad3afefdfcc712d5a919df3e65a9ec2d6454d2'
+            '02550b70143517095921526fb85de7b013f9faaf9ed323daec7cdd1f03a88f7f')
+sha256sums_aarch64=('afb3b2c676bcbf48678ce95d4a1617185ddcf9a64851c53aebcf82d761e8d4be')
 b2sums=('b7fb8c74de664fdd0cd7b42afff2720bda5c4bdb2ffffa80a745c5fecd029c6fe739a3ecbdaa5c5e27194a8acb9bf861271e7bafe6eb475bb3ccd6862e4caf60'
         'SKIP'
         '60eac409f1ba50fe319f6b3aa5b0af81bc7ce5628ca41c1af346a6d5ef0fc9c577527742d1f70ece7e07ea410fcd112b32d64f0a05af5b532f27b62e5e7d837a'
@@ -1609,6 +1751,76 @@ b2sums=('b7fb8c74de664fdd0cd7b42afff2720bda5c4bdb2ffffa80a745c5fecd029c6fe739a3e
         'ac553033803f6e020268740b2aa487dc400feaabff4bbcb803641cc28c4a8f3bfe713a5376f6776a18562d4a78c9b5af23f023b2358e25b9bb45d9a3782117d4'
         '622db710e03cdb015175dc8266ff81a60ff444e5967107ef210e1c8d3a9212f49ca2664d92d2b2430db002b68695a5174c125ef97655ccee0ecbd27100ab2d21'
         'f1027de2ef8787761c21cf99074b7059b891bc6e8e8a29bed25a6e9ff789759cfb7e80e551d01433d2518aef627d232a2ab12ba41ea1de2d2525af3c92d8aa21'
+        '4e687b163708706d256b8f29bf23da965ec24b2f4325c01aaab3cecbdb7d7621001234c5a3fa7022a853cd9fc2c191cd2a94bd33c7308409fa2374defdebc6f0'
+        '882e765127253f23aaaf10e7cf2039ce424f179374fc722b847b43f1acda1152ff8ce4775f3e2e56c8bc631e832bb8b3cc39cc8940932a07fa95a4f363ffb53a'
+        '0f526906999bf5121129a81ab77b4edee966b927376fde9df570b813b90a4a258bb0e11fcbaf322ee1dc381a1ab7bc654a9b3ca7b46d3732f68caabd7f2f10ef'
+        '6984377f03a8655050e6b83e7cfa3826c26e79e531474bd5cc9a2fd5267766d5e24a848799121f5b7aace02cc37c021192c3df620ee479a0b542ddfb59851098'
+        '54ef9c2dea773712924306595e6592e281fe749d726e8a651c7976575b419556b012dc00d4eb0056df12485b756a0a6211f437860147bcff98ee3581f0014d15'
+        'de444e3541b9cdb6cc41dbbfce0517040fb90f8910642fb9996f7a3619c67ee6403d1dfe84b615e5c67ddf621c6597f752c40ea51c8c865e5f2dc5fc0453bccd'
+        'eb80e2c963d962ee7b2d35963fa413f800807041a8a0f7e337665fe13c0cda65037e618611ce4a2ee445fd0e18ebfed57b2ec9898de1ff9a38303953fedcd948'
+        'd5b894ca46d976e49a0175fe67167a5ba6b59e7d8dfcff40e4f868e6184e14c5a564cb53e5acaed3e02f94ee7902c7b750f05a69ca3ff65efb2c6a0a593e3e97'
+        '64ab466bad6bcb3ad9edfe3695a403f62879b3208372321b8082fd0f9d089034a2140f13525f4fac90976dda4fb2ad865b0876ee25f520e733edefa3c5edc6fa'
+        '74cf9dc8d7de9809a8714ca7097e05d4d796cad4a236bdcf01aeca241e390b4a581bf2f22b3ac6737aea75c5b66f717048cff2ab11dd282cca2021c20dc892d0'
+        '3fc1d8f95d32f0d0b846ceaf7412652e8c2514bf399cd2324ba041a29067ad78d09f149bb689ef0023b251beca4ace6324542042f4de052e1ebc27518b8b79ec'
+        '188f487c899c92173d81b637a5e44672bc3c89860d1408c4de7b1eb4fcb1961a29be6c8a00ab6c575c6e0e7bfc40428cf9c0c836797bcc5f0c7f58c3fc50dbb7'
+        '9173d0a563f26b95a2e96eebae4b2b7e2fc86fabd0ec6d4af9442ae90094ff9938d579b0c08a6411a8aaea9e5487fcb80f3aea77a3ffb60c2584cbd81bc1245f'
+        '4a85e581c34da17ae342dc1b205f2a7f1af9c15ef4423af73c8556d3403ff8c9111e77dee7ffcbe77a313d196ba1a3ac603d5c6c122295bcb840417407cab090'
+        '9dbae7f0b3e8eaba0af750aadbec4f186cde6cc6c9c6529924db06e77a34930d070fe929236d727db19642a9f1f61f1f9e434764a291d4df0a4839765b4976f9'
+        '0227df92a8f111923382ca42317ccf9a93416e2b835bd294cad2069a51f93294bc012b760547c95a17b34e70b68958f8fa7a66d918a1b6e27b1c6d004aae781a'
+        'c3e0a3b0d8681aaefc949b5625e81b6ff4b62277fb6fd9ef0d6e0038ef17a068345bc5c096baa7eb1d05f609233ef9dcd7e2d332de583207692b283f18be0cc7'
+        '6a74f1add88ad2bea8275c3b5cc94cf0bea154822b17bed98e7479c9db598dd31f9540e7f3ef79e23e58029a89891a74c4da580b2ef87135244a1ed38a2ff957'
+        'a3e572d6241e3f9f2a19e4a6cbdc888a28d312a15623e7d5a72eb21eb81d7a4c12f704ad693e2188930ce01ce0cad462415aec6ef0f03162e0a42b46e4150e13'
+        '01f9e9136f7376578d6c501604ae4881cab3eba10e24f801395004cd92dbebe7209fd3b87f840690d576ee0c68aa69dedf26383218dc29fc81d55d0803978ded'
+        'eb8a9b1e58df5ee478a87d85ce45e324e64bccccb7a7967da39bc87832d550aa63986db5cc1d5d5f3c931c3f07476f2173e0500cc2d694bf9395164c87872add'
+        '1aeadb59558b55eb9af57a88d23056604e6fc454d7421da03ef7fa92a7068ccbcf5f9e262419eae515ea734141409295ed1bb87fd51c943719a70abce9b2a34d'
+        '2e958923ad1664fc2803e9188a8dfd0f1746677985eeec0d2185c927a957265da34564c59016e8d213bdcf602333b484ec3a7dd0eaa3c49abbe108423f6415bf'
+        '1ba5ce8ab6894640e34c594354566b9f110c1e2f95ebe1b9d957d6e286806040e8669cca5770f85fa600d500516092236778e72625122c0fefb67d3d08ff516b'
+        'ec9dbebb3a7592a26158b56ad18fea232e128378789031dcef32205ad4a670ab208de2ecdeec964bf1430c3b7c27885a00c1fa5dccecb5b88334ef0e9f33e347'
+        '59a440f8fbfe811c5176b927b0569cb716743011c2ebddd5a70ef3196230c23a08696b0af9a671813341a1d156150ba8bce2d19d34bfb6b1df1201f3d69309e5'
+        'b13cd462084e592e5d45b696edb9fdf674fdc5b18f11c571f9f90a0bdd7c3e326cac77c9236e45eead12618f41a45457ad8ebbb17a613755d44497d995f38e31'
+        '885a84feba30def8e3341aa12ffd8a9480a6743f6717964a169b2441a367f7e16d5641a2ee2034daf1960ec520267ab06134fed86675d9d6c46b57365eb4b0fc'
+        '72c375e2ee878e6120ab0b98b5b92a8470729989ccda103550fed1276c168419a54ab58e849c3b444e6677771824d0e7b263d1b1f24d5f62956dc9c03db81546'
+        '3d9830b8fc81d325ac3297bb206ce3b9e5f2f76f8a0118359a6997f60c8401dada938158fd30111010d942423c1cfbb9f6c0b77155806d67d5e74916bf0668eb'
+        '99b291ea045396c8d1fc9d2009ea1beac80b31a496a43d992aa1618840f2c155158fbb48d060eff93af0e08c20e31b9a5930c9f2d8087cb3b65ebc62fb3ef684'
+        '0c18563e53b3e7db302e5bba9559ed83db61bebec22f039d0991ace3857fe3f28f8dc1af4296ecacdfd64128c6861f486cd739268f016e1b64b52c42582a20bd'
+        '3a05382963ca542f064bf8499c3847d0a473a41fc95a27d4ddd15c644c5fec965a39808daf0845a05d7c1f3d83945d5c33c3629fdfe03b219ff061e3797bbd64'
+        '80666a6ef4f4efaadf20561a4eb6eabbcb9a2dd0349b850dcab17d05df2c3396d929a018ac040a1ebe5cff63a7ea28ca516a9d936e33bb9a237019ddef6eddd5'
+        '5f118a5fa3440fb0d51894d8510c8398d3d930b3b14e8cd40c92a1734b65805ea9223f2832df4e053a5704ca16cb8862ad7d5c8547c1308dbc0af3e0ce2e24c8'
+        '37d47a4793004994710061aa301479eba12365695516352fd940a31afbc82307fa8ff69fe7c97b794e9be9b7bb8a399cb3b746eb890ecbcf6ba855206142e586'
+        '2178d1b87f7dd5ccf71e836373bb214e0d89c1c85e1ab0a6c09c846b3d9a34532bd0e093d66f65f23fbd30cd99055897014adbcf40ddb1057de6a35d3418f015'
+        'aad1833834906967e4a5d52176858f21f7280372fcda084fbe95e043400715b380f8da7c9331960c6c4c84a1e7b7eb816f77c8af12555756b9cdfb3817f421c4'
+        'a2d8d47f804b1533d81762a40a9552cfbd7a032b06ea6795af95231ebc650209080953afae403724fdc795b1dd550afbeac66de181c9bbdf61416456092b79e9'
+        '6e5d1af331531e20a351dda9f80736ea6f9ef7ce833a43e9bce0da4360d1aa89433a880d8a9be2b8918c6eb89e68b88a8b4653260111c02913293d62c566deb9'
+        'b4951f0a789fa1eda5a0aa507719ed4f8d57aa2f19e14d48b21ae1c356a683fe87b283b280ab87f0cecb5965c4a655b8b1e6a4d6d6283fb9a3c7171a0bbd8f97'
+        'c41382ff60802907cf604fcc3a878ab022a9c6bbaa1c76226c242c3efd4ec44af7a19ee72da094b341790ec1584ee7c23ad7527f6ac1a612c5f80aebe67b6a09'
+        '0bf2a6ff465c7974eb7608422290a2dda9a569ef55cda02c74cb144a1619fbfdb00057831c352d4c8d4f3d13d7b1495041e10dc739af414443af7a51ca164330'
+        'f69d786dfb4ad78e973f1f246bb6588ca71b85dacc11fdb9dfa5d7381840776a1dadd18052f31d75db10187e5594b5cf0be173ad56a89ee581cecc399b60bd34'
+        '7c2e949bab8330e1fda1b038ff0cde85a82a4eda7bd7664d6e28d1ddb1351db92357ae117db5664ac31f3a10e44222fa0fbb05c313fb3a377336ee7d6f3b62c8'
+        '0d0dff4db51632b1dd494097e5be9002fd6c95661de953ff5331a3c63d5b152ac343ccdcda84868d73e8044ad21429ef952718b5badfdb766aea35b1d965cc02'
+        '8b83d9053a504aec9019e0c49ca8750536e03342f11223c39d9d4bf5fa12087bbaf004eabfbc34010b5534a3bb2e5deb2cd78f3dee5d4ad381ae3e510c582fb0'
+        '578b05e3998b8b655309cfdcbde26e79590045249be1057ae8ad8900d65e8cef3d17a70a40856f1aaccd0921100c4e1232cc5dc883b0d013daebf569165b02eb'
+        'e92df4b704568daea427d703da9c275b6eefeebfbc52f7b402616c1689a6f4d9eeb0f9a51e930c6617be49b12eec373176d8555c57a90ca8640bd38c054aef94'
+        'fb7085251b5482a3e89c5bd972bc75052ae4dcbe108d9e131158f50a14f2b579d07f8a567298438aef02dcb401ca09e58829a7cbc749caedc7950dc40db49653'
+        '8b3cf5dcd1cb880d70cb27754cfd42c4b670d4484de60c34a1297093aa39882e3b8dc98f5f643ae1eb49fa562785551c1de29fb32ac98b929beefea016cfca41'
+        '321d0769356876d227db08886b05be3dd99431cfe214045f0566f3084e8f8bd8f5d1a97f30b933c2581eb6ad6483a56c29adcf023a4e58318666b6745f7a4709'
+        '94e7be3507a77b6df81650a4cd36107a8b0a2f47bcc07f6621ced5b6f2fd6d2b8fb5464b00fa0bc7d146185988f0004428fc9faabad48aa3fcbc4c2f9bb7e6da'
+        '63a3924a93ece6580f47b847e32a363bc53ce50b24221f041273dfb968857650df37cfd3de750b0604ed539670053a7b116a79a6186823c365f70eafa83c8a61'
+        '58c141dbc792d69fbb3831d80c41c6b6b3f9143274a7abdec261c6720613418c9633e23470e56a4feb472c5c7859a9b58c444034fc2e701203085b8568834705'
+        '27bd2cf3df92ad953e80f4c1fcef83ebe03f05b9cca2fd607a27af0d35d086bad6130ed8f182f3b7b7975a2d36882d16adae23667ff1a95f336facd7c4e3cff3'
+        '3116ccd5f433744dca891cfbf83628f37d44d24b891bee4890a6bb0811b350d9552ae004a5c227e55f3c1e5486c590a58bce9142b0f3af6b2534a381e291cbd6'
+        'd25beb06979f296d226a6512aa80dcaa6ca6accaea1244c807b5fd1977294bac73793e5ad30e792b949174d6b798be0b2810019d86af816976f0b93fb59037f1'
+        'f50900e7ccc35186edbf042b43634bf1d77d9b955142dae78ca2b8b4f6822ef4605f2497f43ac8c58dcd62a9b7c965aa3ca9a55903e291a5e625d4e1b59949c0'
+        '8993cb97a60091af9e5799bf650ff5eb742e6b4b7d5d46f4ef5e0eaadb67b23f77e1db188534cc121c0b2e59b7950455f68bb44e2a42d5e407faa7ec06fd6908'
+        '856ec0cdc83ac478700007c2700fd665bbc830834f5d833941a2c9a6d13586c26bdc50445b27f9652d4ce232df7a6b3bca4f60ddbb8b0c992d4fd2133789540b'
+        '5326335cfe92b3add216d2a8ed6b37c7491564d18fa22a9f62dab261af6f97341eb5af4c5e0ad830c5105ee0f2282403c1f670f99a10b192eda1ed65eb53cb76'
+        'c523f02c65ec8de401785bcd51d7d5412b6673331580b462423039d58de0b3da45297fb42be7289e7d68f3605645b9e89e43bdbbe73737aa81d30c2de7fafc7e'
+        '4c7b41c4761e95b1b46f69d828aaa9f50556139a3ca9955eb78d4067d9c4cf0f8be751b1549ba37f0f54a9b53b81e2cef54302cbf742b14eb81e3d1b9280d3e3'
+        '6d40cf5c1076ba8f86100bdc39d6e33ac1c7290e294d3463eb836955f2952a989b12ad2d8f81f7d7f2f3bb1d1e3ed33983539d4546c60b0439cb837890e816fe'
+        '1ffe16a6b40a8fbcb8f330ac146d2319f111bdf324ed72a502c245048d0f15ffd607405edf4435dcdda2bcd97fdce045e2c0b6b4599492bbaa068aaa5aa7107a'
+        '90488a5907abef1742e063a85e5fcdd9ef70de980dbce7f7fef989fe9b5e5136686907f3876a6ac1d95c0c79bdcbff19210b1975b3e31d9732236ebfc91b335c'
+        'b8b8f636186e49d0074b612c61412281961a829da82775fb687f05afcd81f3bb1801af8bb69b31058291a7fae60ca885ebdf238d2f6be19c916532a0574f2181'
+        '855db4933e04969508854dd9e3ef7dc65db3815c872eda3f6df3ac27816a37448976c701e95ef4abcf9396f9589ed31af567df63700b408b9e888f5451f42c66'
+        '627f8e7f64f9cdd044c79738b12be5c19c84d32b311b558908072daf69e88b5b6f1b146aa5ef6fd3e76c44e4ab6df1bbc406ab8985811c1b47a46bab6bfa0f4f'
         'de18a3f607bc3df73356b8a1ef3d0daab22ae58c0b2400f1a78b73144edbb955454624a912c05474147659c2933a8739e28f1575692ce6c6622edc14f4bfd721'
         '6c718ba21c5326ead3de5de70d7bae549aa25ce0f8e226bf77d87f2f8a92829efbeec1774c0968b8f9e5dddccb58055321603f03cfaaf261d6117f6892042b09'
         '097c1af32a9d00846ffedbf6ba97b0e70917ffc692f89f751f1cbdf9a52973b98cdbf71f2ea9e0cf32bb62025fa31b0db4ce974b532faa76fe5c81252070d0dd'
@@ -1634,8 +1846,9 @@ b2sums=('b7fb8c74de664fdd0cd7b42afff2720bda5c4bdb2ffffa80a745c5fecd029c6fe739a3e
         'b2841f9381a41c9a708377cd00a3bc0fe8ab3cf1ef89bf53cbff9aff82875a3bd0afd6e69b87cb3fa7c832fac0a60b8ec0b993ff4f98218c7f95434abcb37af5'
         '6b7fe2022f125e1c59f9645730cac87a3258e9f2210c19ff1f82022ea644ec1242ba9444e59e64f2e4e30f0c579f4ae2e05e119b30cb4d2564e270690373c906'
         '4fad9cae1ced03231baefc935bc8f1b5fb18b4e31c23a91bfd9c7157f7c04e585f7560cb82936d0838f58dde801477c11289946726ec0bd3aba4780159a6eecd'
-        'b24e4f156426414399851ba932d67d562d2623d79bed8297be16829312b86d577ec9f3f80f208f51aa40ebc7280e16496477dfa9a12b0a2cf060299b3734ceb5')
-b2sums_aarch64=('2ecf88ce56385422ec79ac84573150e6586a57015a21da0ce0727f8fa770c4fbbe5aafb7a3a10d05f9f3b3677c19481b2d1ac88920b90479462c082df0d6c2b7')
+        'b24e4f156426414399851ba932d67d562d2623d79bed8297be16829312b86d577ec9f3f80f208f51aa40ebc7280e16496477dfa9a12b0a2cf060299b3734ceb5'
+        '8cd3eacf718935189f9b41f01b6c2b8fe23e5707d6d6bc237353cc9fdd4c30529ca87b3cda2fd34cfb17c385566cd248c99b5b06c089f97f19501fc721409256')
+b2sums_aarch64=('071044af77b91bb2e831781fdfd329924179966c7fe9fea3497fb3083a14dc77cf4250e4dcb82094256fcc2527f3370595e52f13288ff28e220c877191177c86')
 
 # https://www.kernel.org/pub/linux/kernel/v7.x/sha256sums.asc
 
@@ -1778,6 +1991,33 @@ _package() {
 
   # remove build link
   rm "$modulesdir"/build
+
+  echo "Installing the camera ICP module options..."
+  install -Dm644 "$srcdir/qcom-camss-icp.conf" "$pkgdir/usr/lib/modprobe.d/qcom-camss-icp.conf"
+
+  echo "Writing the camera build manifest..."
+  # qualcomm-isp's preflight compares the running kernel and its camera
+  # modules (srcversion, vermagic) with this file before it loads the ICP.
+  python - "$modulesdir" <<'EOF'
+import hashlib, json, subprocess, sys
+from pathlib import Path
+modroot = Path(sys.argv[1])
+modules = {'qcom_camss': 'drivers/media/platform/qcom/camss/qcom-camss.ko',
+           'qcom_camss_icp': 'drivers/media/platform/qcom/camss/qcom-camss-icp.ko',
+           'imx681': 'drivers/media/i2c/imx681.ko',
+           'vd55g0': 'drivers/media/i2c/vd55g0.ko',
+           'ov13858': 'drivers/media/i2c/ov13858.ko'}
+entries = {}
+for name, rel in modules.items():
+    found = sorted((modroot / 'kernel').glob(rel + '*'))
+    if len(found) != 1:
+        sys.exit(f'expected one {rel}, found {len(found)}')
+    info = lambda field: subprocess.check_output(['modinfo', '-F', field, str(found[0])], text=True).strip()
+    entries[name] = dict(path=rel, sha256=hashlib.sha256(found[0].read_bytes()).hexdigest(),
+                         vermagic=info('vermagic'), srcversion=info('srcversion'), depends=info('depends'))
+(modroot / 'qualcomm-isp-manifest.json').write_text(json.dumps(
+    dict(status='linux-omarchy package build', kernel_release=modroot.name, modules=entries), indent=2) + '\n')
+EOF
 }
 
 _package-headers() {
