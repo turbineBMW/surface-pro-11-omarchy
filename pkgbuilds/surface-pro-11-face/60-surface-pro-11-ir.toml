@@ -9,7 +9,9 @@
 #
 # The modalias is the devicetree string of the X1E80100 camera subsystem; a
 # kernel whose devicetree changes the camss node's compatible strings changes
-# it, and authentication then fails closed until this is updated.
+# it, and authentication then fails closed until this is updated. Kernels with
+# the hardware ISP list the camss node as "qcom,x1e80100-camss", "simple-mfd"
+# (so its ICP, BPS and IPE children are created), hence the second entry.
 [[quirk]]
 modalias = "of:NispT(null)Cqcom,x1e80100-camss"
 node_name = "msm_vfe1_video0"
@@ -17,3 +19,11 @@ force_ir = true
 format_preference = "GREY"
 warmup_frames = 4
 notes = "Surface Pro 11 (Snapdragon) VD55G0 IR camera via CAMSS; PMIC flash LED illuminator"
+
+[[quirk]]
+modalias = "of:NispT(null)Cqcom,x1e80100-camssCsimple-mfd"
+node_name = "msm_vfe1_video0"
+force_ir = true
+format_preference = "GREY"
+warmup_frames = 4
+notes = "Surface Pro 11 (Snapdragon) VD55G0 IR camera via CAMSS, kernel with the hardware ISP; PMIC flash LED illuminator"
