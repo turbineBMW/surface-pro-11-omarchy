@@ -50,6 +50,16 @@
       "description": "The neural-network runtime facelock uses."
     },
     {
+      "name": "qualcomm-isp-runtime",
+      "replaces": false,
+      "description": "The hardware ISP camera: it runs the Surface's front camera through the Qualcomm image signal processor and publishes it to PipeWire."
+    },
+    {
+      "name": "qualcomm-isp-libcamera",
+      "replaces": false,
+      "description": "A private libcamera build the hardware ISP camera captures with; it does not replace the system libcamera."
+    },
+    {
       "name": "surface-pro-11-windows",
       "replaces": false,
       "description": "A boot menu entry for Windows when it stays on the Surface, and Boot to Windows in Omarchy."
