@@ -6,3 +6,5 @@ pkgbuilds/*/*.pkg.tar.*
 pkgbuilds/*/*.log
 pkgbuilds/linux-omarchy-aarch64/linux-*.tar.*
 pkgbuilds/facelock/facelock/
+pkgbuilds/*/qualcomm-isp/
+pkgbuilds/qualcomm-isp-libcamera/libcamera-*.tar.gz
