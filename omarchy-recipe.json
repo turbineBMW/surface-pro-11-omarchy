@@ -3,7 +3,10 @@
   "repo": "surface-pro-11",
   "name": "Surface Pro 11 extras",
   "summary": "The Surface Pro 11's fixes and features while they make their way into Omarchy. Each package here either replaces Omarchy's package of the same name with a newer, patched one, or adds something Omarchy does not have yet.",
-  "maintainer": { "name": "Brandon Williams", "github": "turbineBMW" },
+  "maintainer": {
+    "name": "Brandon Williams",
+    "github": "turbineBMW"
+  },
   "homepage": "https://github.com/turbineBMW/surface-pro-11-omarchy",
   "status": "active",
   "packages": [
@@ -58,6 +61,11 @@
       "name": "qualcomm-isp-libcamera",
       "replaces": false,
       "description": "A private libcamera build the hardware ISP camera captures with; it does not replace the system libcamera."
+    },
+    {
+      "name": "qualcomm-isp-autoframe",
+      "replaces": false,
+      "description": "Automatic framing for the front camera: the picture follows your face, cropped from the ISP's 4K output, like Windows Studio Effects. Optional; isp-autoframe switches it, and it adds a bar widget on request."
     },
     {
       "name": "surface-pro-11-windows",
