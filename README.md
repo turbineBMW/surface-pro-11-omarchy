@@ -78,8 +78,8 @@ once Omarchy ships the same fixes.
 | `surface-pro-11-face` | 1-6 | | Face unlock with the IR camera: camera wiring, facelock quirk, `surface-pro-11-face-setup` |
 | `facelock` | 0.2.1.r153-3 | [tyvsmith/facelock](https://github.com/tyvsmith/facelock) `main` (no release has IR cameras behind CAMSS yet) | Face authentication for PAM |
 | `onnxruntime-bin` | 1.29.0 | Arch Linux ARM has no onnxruntime | Microsoft's aarch64 build, for facelock |
-| `qualcomm-isp-runtime` | 0.1-10 | [turbineBMW/qualcomm-isp](https://github.com/turbineBMW/qualcomm-isp) `v0.1-10` | The front camera through the hardware ISP (ICP/IPE), published to PipeWire; needs `linux-omarchy` 7.3-25.2 or later and camera data from the Surface's own Windows drivers |
-| `qualcomm-isp-libcamera` | 0.7.2-4 | [turbineBMW/qualcomm-isp](https://github.com/turbineBMW/qualcomm-isp) `v0.1-9` | A private libcamera (`/usr/lib/qualcomm-isp/libcamera`) for the runtime's capture; the system libcamera stays |
+| `qualcomm-isp-runtime` | 0.1-19 | [turbineBMW/qualcomm-isp](https://github.com/turbineBMW/qualcomm-isp) `v0.1-19` | The front camera, and the rear camera once its board data is prepared, through the hardware ISP (ICP/IPE), published to PipeWire at 4K down to 640x360 with the rear's ten-bit denoising, motion-safe temporal filtering, exposure and colour tuned from the Surface's own Windows camera data; needs `linux-omarchy` 7.3-25.3 or later and that camera data |
+| `qualcomm-isp-libcamera` | 0.7.2-8 | [turbineBMW/qualcomm-isp](https://github.com/turbineBMW/qualcomm-isp) `v0.1-19` | A private libcamera (`/usr/lib/qualcomm-isp/libcamera`) for the runtime's capture, with the rear OV13858 sensor, paired RAW statistics and its gain range bounded to what the sensor delivers; the system libcamera stays |
 | `surface-pro-11-windows` | 1-4 | | Windows in the Limine boot menu (below Omarchy) and System > Boot to Windows |
 | `surface-pro-11-keyring` | 1-1 | | This repository's signing key |
 

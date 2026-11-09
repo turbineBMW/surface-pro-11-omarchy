@@ -52,7 +52,7 @@
     {
       "name": "qualcomm-isp-runtime",
       "replaces": false,
-      "description": "The hardware ISP camera: it runs the Surface's front camera through the Qualcomm image signal processor and publishes it to PipeWire."
+      "description": "The hardware ISP camera: it runs the Surface's front camera, and the rear camera once its board data is prepared, through the Qualcomm image signal processor and publishes them to PipeWire."
     },
     {
       "name": "qualcomm-isp-libcamera",

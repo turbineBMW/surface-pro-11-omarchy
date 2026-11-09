@@ -3,25 +3,29 @@
 # the reference (packaging/libcamera). Bump _tag and pkgrel together.
 pkgname=qualcomm-isp-libcamera
 pkgver=0.7.2
-pkgrel=4
+pkgrel=8
 pkgdesc='Private libcamera capture tool for the experimental Qualcomm ISP runtime'
 arch=('aarch64')
 license=('LGPL-2.1-or-later' 'GPL-2.0-or-later' 'Apache-2.0' 'CC0-1.0')
 depends=('glibc' 'gcc-libs' 'gnutls' 'libelf' 'libevent' 'libyaml' 'libtiff' 'libunwind' 'systemd-libs' 'libyuv' 'libglvnd')
 makedepends=('git' 'meson' 'ninja' 'python-jinja' 'python-ply' 'python-pyyaml' 'pkgconf')
 _commit=aeae1f0c7155ae2a175f27b571496f87943197f9
-_tag=v0.1-9
+_tag=v0.1-19
 url='https://github.com/turbineBMW/qualcomm-isp'
 source=("libcamera-${_commit}.tar.gz::https://github.com/turbineBMW/libcamera/archive/${_commit}.tar.gz"
         "qualcomm-isp::git+$url.git#tag=$_tag")
 sha256sums=('a8d3b2c225d4c2b87a9b8149c6e34ab0943e3df67232c8879aedfb397e9a52cd'
-            'a14403b446adc9fa76c39ad8150dc5d3630856f0bce3175f51909ba9235a58e6')
+            'a72192f8b41b136aeb78013a47e58b6537c0eaaef98446c9f0cc956da9d6944e')
 options=('!debug')
 prepare() {
   mv "libcamera-${_commit}" libcamera
   cd libcamera
   patch -Np1 -i ../qualcomm-isp/packaging/libcamera/libcamera-working.patch
   patch -Np1 -i ../qualcomm-isp/packaging/libcamera/libcamera-rear.patch
+  patch -Np1 -i ../qualcomm-isp/packaging/libcamera/libcamera-mode-controls.patch
+  patch -Np1 -i ../qualcomm-isp/packaging/libcamera/libcamera-neutral-lsc.patch
+  patch -Np1 -i ../qualcomm-isp/packaging/libcamera/libcamera-early-ccm.patch
+  patch -Np1 -i ../qualcomm-isp/packaging/libcamera/libcamera-gain-range.patch
 }
 build() {
   meson setup --reconfigure libcamera build --prefix=/usr/lib/qualcomm-isp/libcamera --libdir=lib \
@@ -31,6 +35,17 @@ build() {
     -Dcam-output-kms=disabled -Dcam-output-sdl2=disabled -Dcam-jpeg=disabled \
     -Dwerror=false -Dc_link_args= -Dcpp_link_args=
   meson compile -C build -j 8
+}
+check() {
+  g++ -std=c++17 -O2 -Wall -Wextra -Werror -I libcamera/src/libcamera/pipeline/camss \
+    qualcomm-isp/packaging/libcamera/test-lsc-stats.cpp -o test-lsc-stats
+  ./test-lsc-stats
+  g++ -std=c++17 -O2 -Wall -Wextra -Werror -I libcamera/src/libcamera/pipeline/camss \
+    qualcomm-isp/packaging/libcamera/test-ccm-stats.cpp -o test-ccm-stats
+  ./test-ccm-stats
+  g++ -std=c++17 -O2 -Wall -Wextra -Werror -I libcamera/src/libcamera/pipeline/camss \
+    qualcomm-isp/packaging/libcamera/test-highlight-sampling.cpp -o test-highlight-sampling
+  ./test-highlight-sampling
 }
 package() {
   DESTDIR="$pkgdir" meson install -C build --no-rebuild
