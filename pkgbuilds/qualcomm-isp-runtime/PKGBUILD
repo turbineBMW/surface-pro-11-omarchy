@@ -3,7 +3,7 @@
 # the reference (packaging/runtime). Bump _tag and pkgrel together.
 pkgname=qualcomm-isp-runtime
 pkgver=0.1
-pkgrel=24
+pkgrel=26
 pkgdesc='Experimental Qualcomm ISP camera runtime with explicit board profiles'
 arch=('aarch64')
 license=('MIT')
@@ -12,10 +12,10 @@ depends=('python' 'python-numpy' 'python-gobject' 'gstreamer' 'gst-plugins-base'
 makedepends=('git' 'pkgconf' 'gcc' 'libpipewire' 'gstreamer' 'gst-plugins-base')
 checkdepends=('python' 'python-numpy')
 backup=('etc/qualcomm-isp/config.json')
-_tag=v0.1-24
+_tag=v0.1-26
 url='https://github.com/turbineBMW/qualcomm-isp'
 source=("qualcomm-isp::git+$url.git#tag=$_tag")
-sha256sums=('913021316832c4df1d4895c86ed03eeaa11b5043355b194806a1884d5c1247a9')
+sha256sums=('96dfd6eb5a307c83e6c30fda0bcc7931bc154e2ab72eee6fcda5436d9378dbc8')
 options=('!debug')
 build() {
   cd qualcomm-isp
