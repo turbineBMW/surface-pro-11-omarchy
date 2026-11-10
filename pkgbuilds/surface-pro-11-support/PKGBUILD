@@ -5,7 +5,7 @@
 
 pkgname=surface-pro-11-support
 pkgver=1
-pkgrel=5.2
+pkgrel=5.3
 pkgdesc="Hardware support for the Microsoft Surface Pro 11 (Snapdragon X Elite) not yet carried upstream"
 arch=('aarch64')
 # Qualcomm-only: the pacman platform guard keeps it off other hardware.
@@ -46,6 +46,7 @@ source=(
   'surface-pro-11-brightness-sync.service'
   'omarchy-menu.jsonc'
   '70-surface-pro-11-battery.rules'
+  '50-surface-pro-11-psr.conf'
   '70-surface-pro-11-flex-keyboard.rules'
   '50-surface-pro-11-flex-keyboard.quirks'
   'README.package.md'
@@ -77,9 +78,10 @@ sha256sums=('f571d0667e48da9967db20770beff426a5e0372836a8a2bb66cd806d43b0f580'
             '88a5142212542a07c3933e14ebd7506ed20c029f69ef4384926bdd97782e735c'
             '3b80b8aacee78343a99abf2a8dad34382236cf8f33d2d7f9cdefe1e8b546b602'
             '5a5574b1ebe3691734a411e0ae8f79e0a7581cbf13c8769775fc0b08aaa3fea5'
+            '755d6e4e6106247a4883252dabd5afa72ed3f871a5b45d31b0e9a83b4fa6e60b'
             '16117bf87eff67463962e1de50799e1dd05baa8b39746cf1b93f2f445bb7c84f'
             'eb703cfc8e06210e1340c3272c0da6a0426f525fa0f49935b69b8b9e1546e7f4'
-            '9ad859908bc0731eb159fff701b63eea65d255da69b6561e132d09ce8d506a82'
+            '119324a15cdbefa9388b18251a1b142bc35060575eddb26938e8d60bf83026b9'
             'f74f925ccd6fc2f4b9bdf7682f6927a64809c8668e8232997c541cc6f992787b')
 
 # The Surface reports generic WCN7850 identifiers (subsystem 17cb:1107,
@@ -159,6 +161,11 @@ package() {
   install -Dm644 50-surface-pro-11-flex-keyboard.quirks \
     "$pkgdir/usr/share/libinput/50-surface-pro-11-flex-keyboard.quirks"
   install -Dm644 70-surface-pro-11-battery.rules "$pkgdir/usr/lib/udev/rules.d/70-surface-pro-11-battery.rules"
+
+  # Kernel command line: panel self-refresh. /etc/limine-entry-tool.d/ is read
+  # after this folder, so a local file there can switch it off again.
+  install -Dm644 50-surface-pro-11-psr.conf \
+    "$pkgdir/usr/share/limine-entry-tool.d/50-surface-pro-11-psr.conf"
 
   # External monitor brightness follows the screen's; on for every user, who
   # can mask it (systemctl --user mask surface-pro-11-brightness-sync)
