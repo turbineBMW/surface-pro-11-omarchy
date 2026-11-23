@@ -46,7 +46,7 @@
      })
  
      return true
-@@ -385,6 +401,52 @@
+@@ -386,6 +402,52 @@
      runWake()
    }
  
@@ -99,7 +99,7 @@
    function startFingerprint() {
      if (!lockRequested || !sessionLock.secure || !fingerprintConfigured || fingerprintPaused) return
      if (fingerprintPam.active || fingerprintAuthenticating) return
-@@ -474,6 +536,7 @@
+@@ -475,6 +537,7 @@
          sessionLockStabilizeTimer.stop()
          pendingSessionLockTimer.stop()
          root.startFingerprint()
@@ -107,7 +107,7 @@
        }
      }
  
-@@ -512,6 +575,8 @@
+@@ -513,6 +576,8 @@
          backgroundVersion: root.backgroundVersion
          fingerprintConfigured: root.fingerprintConfigured || root.fingerprintUnavailable
          fingerprintUnavailable: root.fingerprintUnavailable
@@ -116,7 +116,7 @@
          authenticatingPassword: root.authenticatingPassword
          failureMessage: root.failureMessage
          failedAttempts: root.failedAttempts
-@@ -520,8 +585,12 @@
+@@ -521,8 +586,12 @@
          passwordText: root.enteredPassword
          onPasswordTextEdited: function(password) { root.enteredPassword = password }
          onSubmitPassword: function(password) { root.submitPassword(password) }
@@ -130,7 +130,7 @@
        }
  
      }
-@@ -548,6 +617,8 @@
+@@ -549,6 +618,8 @@
        backgroundVersion: root.backgroundVersion
        fingerprintConfigured: root.fingerprintConfigured || root.fingerprintUnavailable
        fingerprintUnavailable: root.fingerprintUnavailable
@@ -139,7 +139,7 @@
        authenticatingPassword: false
        failureMessage: ""
        failedAttempts: 0
-@@ -603,6 +674,62 @@
+@@ -604,6 +675,62 @@
      }
    }
  
@@ -202,8 +202,8 @@
    // The lock only starts decoding its wallpaper once locked, and a machine
    // suspending right after locking froze that decode partway: waking showed
    // the password field on a bare background, then the wallpaper popped in.
-@@ -776,10 +903,10 @@
-         root.armBlankTimer()
+@@ -782,10 +909,10 @@
+         root.armBlankTimer(resumeMs)
          return
        }
 -      // Only a password check in flight should hold the display up. The
@@ -217,7 +217,16 @@
      }
    }
  
-@@ -839,6 +966,12 @@
+@@ -799,7 +926,7 @@
+     timeout: idleBlankTimer.idleMs / 1000
+     respectInhibitors: false
+     onIsIdleChanged: {
+-      if (isIdle && root.lockRequested && !root.authenticatingPassword && !idleBlankTimer.running) root.runBlank()
++      if (isIdle && root.lockRequested && !root.authenticatingPassword && !root.faceAuthenticating && !idleBlankTimer.running) root.runBlank()
+     }
+   }
+ 
+@@ -859,6 +986,12 @@
      else armBlankTimer()
    }
  
@@ -230,7 +239,7 @@
    FileView {
      path: "/etc/pam.d/omarchy-lock-password"
      watchChanges: true
-@@ -863,6 +996,7 @@
+@@ -883,6 +1016,7 @@
      knownScreenCount = realScreenCount()
      refreshBackground()
      refreshFingerprintStatus()
@@ -238,7 +247,7 @@
      checkStrandedLock()
    }
  
-@@ -892,6 +1026,9 @@
+@@ -912,6 +1046,9 @@
          passwordPam: root.passwordPamConfigured,
          fingerprint: root.fingerprintConfigured,
          fingerprintUnavailable: root.fingerprintUnavailable,
@@ -248,7 +257,7 @@
          authenticating: root.authenticating,
          lastEvent: root.lastEvent,
          lastEventAt: root.lastEventAt
-@@ -901,6 +1038,7 @@
+@@ -921,6 +1058,7 @@
      function preview(): string {
        root.refreshBackground()
        root.refreshFingerprintStatus()
