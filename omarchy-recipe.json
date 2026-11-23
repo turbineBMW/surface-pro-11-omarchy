@@ -13,14 +13,17 @@
     {
       "name": "linux-omarchy",
       "replaces": true,
-      "description": "Omarchy's 7.3 kernel with the Surface's suspend fix (the SAM link no longer drops when its UART powers down), audio over DisplayPort and the camera's hardware ISP.",
-      "upstream": "https://github.com/omacom/omarchy-pkgs/pull/1698"
+      "description": "Omarchy's 7.3 kernel with audio over DisplayPort and the camera's hardware ISP."
     },
     {
       "name": "linux-omarchy-headers",
       "replaces": true,
-      "description": "Headers for that kernel, for DKMS modules.",
-      "upstream": "https://github.com/omacom/omarchy-pkgs/pull/1698"
+      "description": "Headers for that kernel, for DKMS modules."
+    },
+    {
+      "name": "linux-omarchy-dtbs",
+      "replaces": true,
+      "description": "The device trees, built from that kernel's sources: the Surface's has audio over DisplayPort and the camera ISP."
     },
     {
       "name": "surface-pro-11-support",
