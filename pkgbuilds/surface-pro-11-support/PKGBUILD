@@ -5,7 +5,7 @@
 
 pkgname=surface-pro-11-support
 pkgver=1
-pkgrel=5.3
+pkgrel=5.4
 pkgdesc="Hardware support for the Microsoft Surface Pro 11 (Snapdragon X Elite) not yet carried upstream"
 arch=('aarch64')
 # Qualcomm-only: the pacman platform guard keeps it off other hardware.
@@ -44,6 +44,9 @@ source=(
   'ddc-vcp'
   'surface-pro-11-brightness-sync'
   'surface-pro-11-brightness-sync.service'
+  'surface-pro-11-battery-info'
+  'surface-pro-11-battery-info.service'
+  'surface-pro-11-battery-info.timer'
   'omarchy-menu.jsonc'
   '70-surface-pro-11-battery.rules'
   '50-surface-pro-11-psr.conf'
@@ -76,12 +79,15 @@ sha256sums=('f571d0667e48da9967db20770beff426a5e0372836a8a2bb66cd806d43b0f580'
             '344fd0d09d9b43f0844999fff1f0cd644c136a99d626ae48857a53e813dbda75'
             '569b76f1e47176e65c436843fc2f1edb6bcf3451853278afbe0183c6562f0706'
             '88a5142212542a07c3933e14ebd7506ed20c029f69ef4384926bdd97782e735c'
+            '172f701111cc9ae5f865411fb6d38beec5f6b1bea7e62ce08dba47aa014fe7e2'
+            '57ffbd105bc3a5eaf35d1980d2ac3c81360629e5e1f834aada4ec2d62a8fb4d5'
+            'e9f9db9d461ffde45d8b0bf06b811830890872f8fb87796c1b354b36378e9529'
             '3b80b8aacee78343a99abf2a8dad34382236cf8f33d2d7f9cdefe1e8b546b602'
             '5a5574b1ebe3691734a411e0ae8f79e0a7581cbf13c8769775fc0b08aaa3fea5'
             '755d6e4e6106247a4883252dabd5afa72ed3f871a5b45d31b0e9a83b4fa6e60b'
             '16117bf87eff67463962e1de50799e1dd05baa8b39746cf1b93f2f445bb7c84f'
             'eb703cfc8e06210e1340c3272c0da6a0426f525fa0f49935b69b8b9e1546e7f4'
-            '119324a15cdbefa9388b18251a1b142bc35060575eddb26938e8d60bf83026b9'
+            'a8fec65fddcca4f4fcced4c72640ae343ebe13b5ed939340ed1548efda926807'
             'f74f925ccd6fc2f4b9bdf7682f6927a64809c8668e8232997c541cc6f992787b')
 
 # The Surface reports generic WCN7850 identifiers (subsystem 17cb:1107,
@@ -176,6 +182,15 @@ package() {
   install -d "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants"
   ln -s ../surface-pro-11-brightness-sync.service \
     "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/surface-pro-11-brightness-sync.service"
+
+  # The battery cycle count, which only the Surface EC has: read at boot and
+  # hourly into /run/surface-pro-11-battery for the battery card.
+  install -Dm755 surface-pro-11-battery-info "$pkgdir/usr/lib/$pkgname/surface-pro-11-battery-info"
+  install -Dm644 -t "$pkgdir/usr/lib/systemd/system" \
+    surface-pro-11-battery-info.service surface-pro-11-battery-info.timer
+  install -d "$pkgdir/usr/lib/systemd/system/timers.target.wants"
+  ln -s ../surface-pro-11-battery-info.timer \
+    "$pkgdir/usr/lib/systemd/system/timers.target.wants/surface-pro-11-battery-info.timer"
 
   install -Dm644 README.package.md "$pkgdir/usr/share/doc/$pkgname/README.md"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"

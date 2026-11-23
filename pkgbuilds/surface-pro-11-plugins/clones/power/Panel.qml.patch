@@ -10,8 +10,8 @@
 +  property bool chargeLimitSupported: false
 +  property bool chargeLimitEnabled: false
 +  property int chargeLimitEnd: 80
-+  // The Qualcomm battery manager reports no cycle count; the Surface
-+  // Aggregator's view of the same cell (BAT1, hidden from UPower) does.
++  // The Qualcomm battery manager reports no cycle count; the Surface EC
++  // does, read by surface-pro-11-battery-info (surface-pro-11-support).
 +  property int samCycles: 0
    readonly property bool showPercentage: setting("showPercentage", false) === true
    // With the percentage shown the button paints a text block wider than an
@@ -67,7 +67,7 @@
 +
 +  FileView {
 +    id: samCyclesFile
-+    path: "/sys/class/power_supply/BAT1/cycle_count"
++    path: "/run/surface-pro-11-battery/cycle-count"
 +    printErrors: false
 +    onLoaded: root.samCycles = parseInt(text(), 10) || 0
 +  }
