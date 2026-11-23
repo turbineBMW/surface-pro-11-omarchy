@@ -47,6 +47,27 @@ srcinfo_packages() {
   done
 }
 
+# The package file of ours that provides makedepend $1, if this repository
+# builds it: from this run, or else the published one. linux-omarchy-dtbs
+# compiles the trees in linux-omarchy-headers, so it has to build against our
+# headers (our kernel's tree patches), not Omarchy's. Prints nothing for a
+# package that only Omarchy has.
+release_url=${REPO_URL:-https://github.com/turbineBMW/surface-pro-11-omarchy/releases/download/$arch}
+ours_pkgfile() {
+  local dep=$1 file entry
+  for file in "${built[@]}"; do
+    if [[ $(bsdtar -xOf "$file" .PKGINFO | sed -n 's/^pkgname = //p') == "$dep" ]]; then
+      echo "$file"
+      return
+    fi
+  done
+  entry=$(grep -xE "$dep-[^-]+-[^-]+" <<<"$entries" | head -1) || true
+  [[ -n $entry ]] || return 0
+  file=$(tar -xzOf "$db" "$entry/desc" | awk '/^%FILENAME%$/ { getline; print; exit }')
+  [[ -f $out/$file ]] || curl -fsSL -o "$out/$file" "$release_url/$file"
+  echo "$out/$file"
+}
+
 if (( $# )); then
   bases=("$@")
 else
@@ -75,8 +96,17 @@ for base in "${bases[@]}"; do
   if [[ ${INSTALL_MAKEDEPENDS:-} == 1 ]]; then
     mapfile -t deps < <(cd "$dir" && makepkg --printsrcinfo |
       sed -n 's/^\t\(makedepends\|checkdepends\)\(_[a-z0-9_]*\)\? = //p' | sort -u)
-    if (( ${#deps[@]} )); then
-      sudo pacman -S --needed --noconfirm "${deps[@]}"
+    repo_deps=()
+    from_omarchy=()
+    for dep in "${deps[@]}"; do
+      file=$(ours_pkgfile "$dep")
+      if [[ -n $file ]]; then repo_deps+=("$file"); else from_omarchy+=("$dep"); fi
+    done
+    if (( ${#from_omarchy[@]} )); then
+      sudo pacman -S --needed --noconfirm "${from_omarchy[@]}"
+    fi
+    if (( ${#repo_deps[@]} )); then
+      sudo pacman -U --noconfirm --nodeps "${repo_deps[@]}"
     fi
   fi
 

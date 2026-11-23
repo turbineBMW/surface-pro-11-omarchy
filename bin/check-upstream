@@ -68,6 +68,10 @@ omarchy_blobs() {
 }
 
 caught_up=0
+# pkgbase -> the carried pkgbase whose packages it is built from. The source
+# must sort before it (directories are checked in order).
+declare -A built_from=([linux-omarchy-dtbs]=linux-omarchy-aarch64)
+declare -A is_carried=()
 printf '%-28s %-14s %-14s %s\n' PACKAGE OURS OMARCHY STATE
 for dir in "$root"/pkgbuilds/*/; do
   pkgbase=$(basename "$dir")
@@ -101,6 +105,15 @@ for dir in "$root"/pkgbuilds/*/; do
     break
   done
 
+  # A package built from another carried package's output carries what that
+  # one does, though its own files are Omarchy's: our linux-omarchy-dtbs
+  # compiles the trees in our linux-omarchy-headers.
+  from=${built_from[$pkgbase]:-}
+  if (( analysed && ${#carried[@]} == 0 )) && [[ -n $from && -n ${is_carried[$from]:-} ]]; then
+    carried=("(everything from our $from: built against its headers)")
+  fi
+  (( ${#carried[@]} == 0 )) || is_carried[$pkgbase]=1
+
   behind=
   for name in "${names[@]}"; do
     theirs=${upstream[$name]:-}
@@ -109,7 +122,7 @@ for dir in "$root"/pkgbuilds/*/; do
     elif [[ $pkgrel != *.* ]]; then
       state="ours only (no .N pkgrel)"
     elif (( ${#carried[@]} > 0 )); then
-      if (( $(vercmp "$theirs" "$base") >= 0 )); then
+      if (( $(vercmp "$theirs" "$base") > 0 )); then
         state="carried, behind"
         behind=$theirs
       else
