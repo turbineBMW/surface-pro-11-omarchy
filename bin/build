@@ -106,6 +106,17 @@ for base in "${bases[@]}"; do
       sudo pacman -S --needed --noconfirm "${from_omarchy[@]}"
     fi
     if (( ${#repo_deps[@]} )); then
+      # Our packages are signed with the repository key, which a fresh
+      # builder's pacman keyring does not have: pacman -U refuses them.
+      # Signing it locally needs the keyring's own master key, which the
+      # builder image has not generated; --init keeps one that exists.
+      if [[ ${trusted_repo_key:-} != 1 ]]; then
+        sudo pacman-key --init
+        sudo pacman-key --add "$root/keys/$repo.asc"
+        sudo pacman-key --lsign-key \
+          "$(gpg --show-keys --with-colons "$root/keys/$repo.asc" | awk -F: '/^fpr/ { print $10; exit }')"
+        trusted_repo_key=1
+      fi
       sudo pacman -U --noconfirm --nodeps "${repo_deps[@]}"
     fi
   fi
