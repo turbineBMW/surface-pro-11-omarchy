@@ -137,6 +137,7 @@ machine to Omarchy's kernel before we published our own dtbs). So
 bin/build [PKGBASE...]    # build into out/aarch64, skipping versions already there
 bin/check-upstream        # compare with Omarchy edge
 bin/watch-omarchy         # what in Omarchy needs our attention (Markdown)
+bin/rebase [--check] PKGBASE...   # put our changes on Omarchy's current recipe
 bin/publish fetch|upload  # sync out/aarch64 with the GitHub release
 bin/export-key FPR        # put the signing key into the keyring package and install.sh
 ```
@@ -156,5 +157,25 @@ The kernel builds with ccache, kept between runs in the Actions cache and
 saved only after a kernel build. A rebase that leaves Omarchy's
 configuration alone recompiles only the files its patches change; a new
 configuration touches every file, and the build takes its full two hours.
+
+### Rebasing a carried package
+
+Each carried package records the omarchy-pkgs commit its recipe was taken
+from in `pkgbuilds/PKGBASE/.omarchy-base`. `bin/rebase` puts our changes on
+Omarchy's current recipe the way git would: the source lines we added go
+after the same lines in Omarchy's array, files only Omarchy changed take its
+version, files both sides changed merge three ways, pkgrel becomes Omarchy's
+plus `.1`, the checksums are regenerated, and the README's version rows
+follow. A patch of ours that Omarchy now carries (the same changes under
+another name) is dropped. With `--check` it also runs makepkg's
+`prepare()`: a patch of ours the new tree already has, or one that no longer
+applies where Omarchy carries another revision of it (same subject), is
+dropped too. What it cannot resolve is listed with the exit status 1, and
+merged files keep conflict markers. Nothing is committed: read the diff,
+build, test, commit.
+
+```sh
+bin/rebase --check linux-omarchy-aarch64 linux-omarchy-dtbs
+```
 
 What comes next is in [docs/ROADMAP.md](docs/ROADMAP.md).
