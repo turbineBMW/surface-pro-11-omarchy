@@ -17,7 +17,7 @@ Before it goes public:
 
 ## 2. Plugins on by default (surface-pro-11-plugins)
 
-Done: corners, Power + charge-limit toggle,
+Done: corners, Power + EC cycle count (the charge-limit toggle is Omarchy's own since its 2026-11 power panel),
 Display + ambient auto-brightness, rounded windows for every theme. The
 battery clone was dropped (it added nothing to stock), and so was the pen OSD
 (the keyboard dock stopped reporting the pen); brightness sync and the
@@ -31,8 +31,7 @@ Next:
   reference) and a scan after resume. facelock is built from `main` until a
   release carries #396 and #407. Lock screen only; sudo and polkit stay
   password-only (the open product question on #11612).
-- Upstream proposals: the charge-limit toggle (any UPower battery with
-  thresholds), auto-brightness (iio-sensor-proxy), and a system plugin
+- Upstream proposals: auto-brightness (iio-sensor-proxy), and a system plugin
   directory so packages need no per-user links.
 
 ## 3. Windows next to Omarchy (surface-pro-11-windows)
