@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Brandon Williams <turbine.bmw@gmail.com>
+Date: Mon, 23 Nov 2026 18:45:00 -0500
+Subject: [PATCH] soundwire: qcom: re-enumerate the Surface Pro 11's controller
+ on runtime resume
+
+The Surface Pro 11's speaker bus, a v2.0.0 controller with two WSA884x
+amplifiers, comes back from a clock stop the way 2438 describes on
+Glymur: now and then a bus clash at the wake, after which one amplifier
+answers every register read with 0x21. The PA health check then reads
+a fault and leaves that amplifier disabled, and on this machine it did
+not recover: on every later stream for the rest of the hour the right
+amplifier reported a real PA fault (PA_FSM_STA1 0x4, ERR_COND0 0x20) and
+was switched off about 0.6 s in, so the right speaker went quiet.
+
+Take 2438's path on the Surface Pro 11 too: no clock stop, and a soft
+reset and enumeration on runtime resume. Playing a quiet burst after
+every runtime suspend and reading the amplifiers right at the wake, for
+an hour each:
+
+  stock:      158 wakes; 0x21 reads left the right amplifier disabled
+              on 2, and from the second on it was switched off for a
+              PA fault on about 150
+  this patch: 156 wakes, no PA fault
+
+Bus clashes and parity errors at the wake still occur with it, but no
+longer leave an amplifier stuck.
+
+Assisted-by: Claude:claude-opus-5-5
+---
+ drivers/soundwire/qcom.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/soundwire/qcom.c b/drivers/soundwire/qcom.c
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -667,10 +667,14 @@
+ 		/*
+ 		 * Peripherals on v3.1.0 controllers (Glymur) often come back
+ 		 * from a clock stop unattached, or attached but returning
+-		 * garbage for every register read. Reset the controller and
+-		 * re-enumerate on runtime resume instead, as at probe.
++		 * garbage for every register read. So do the Surface Pro 11's
++		 * WSA884x amplifiers on its v2.0.0 controller. Reset the
++		 * controller and re-enumerate on runtime resume instead, as at
++		 * probe.
+ 		 */
+-		ctrl->clock_stop_not_supported = ctrl->version >= SWRM_VERSION_3_1_0;
++		ctrl->clock_stop_not_supported =
++			ctrl->version >= SWRM_VERSION_3_1_0 ||
++			of_machine_is_compatible("microsoft,denali");
+ 		/* Now compare with entries */
+ 		list_for_each_entry_safe(slave, _s, &bus->slaves, node) {
+ 			if (sdw_compare_devid(slave, id) == 0) {
+-- 
+2.53.0
