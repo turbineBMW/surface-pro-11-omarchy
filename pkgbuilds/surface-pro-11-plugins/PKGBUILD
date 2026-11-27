@@ -1,13 +1,13 @@
 # Maintainer: Brandon Williams <turbine.bmw@gmail.com>
 pkgname=surface-pro-11-plugins
 pkgver=1
-pkgrel=13
+pkgrel=14
 pkgdesc="Omarchy shell plugins for the Surface Pro 11: battery cycle count, auto-brightness, rounded corners, first-login offers"
 arch=('any')
 url="https://github.com/turbineBMW/surface-pro-11-omarchy"
 license=('MIT')
 depends=('omarchy' 'jq' 'patch' 'brightnessctl' 'iio-sensor-proxy' 'python-gobject'
-         'upower' 'surface-pro-11-support')
+         'upower' 'microsoft-surface-pro-11-support')
 install=$pkgname.install
 # The plugins and patches are this repository's own files; makepkg's flat
 # source array cannot hold a directory tree, so package() copies them from

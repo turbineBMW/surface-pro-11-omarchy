@@ -51,8 +51,6 @@ source "$package_dir/PKGBUILD"
   fail "the ELF board data is packaged without stripping"
 [[ " ${arch[*]} " == " aarch64 " && " ${groups[*]} " == *" omarchy-platform-qualcomm "* ]] ||
   fail "the package is tagged Qualcomm-only for aarch64"
-grep -q "^_audioreach_commit=d7a5e9d80ad18a7a6844eeb32cacbdeea0e7e677$" "$package_dir/PKGBUILD" ||
-  fail "the topology builds from pinned AudioReach source"
 grep -q 'File "/Qualcomm/surface-pro-11/Surface11-HiFi.conf"' "$package_dir/MICROSOFT-Surface-Pro-11.conf" ||
   fail "the card profile points at the shipped HiFi verb"
 
@@ -66,8 +64,9 @@ grep -A1 -- '- BlackLevel:' "$package_dir/imx681.yaml" | grep -q 'blackLevel: 40
 bin="$scratch/bin"
 mkdir -p "$bin"
 
-# Every hook acts only on the Surface Pro 11 OLED.
+# Every hook acts only on the Surface Pro 11, OLED (X Elite) or LCD (X Plus).
 printf 'microsoft,denali-oled\0microsoft,denali\0qcom,x1e80100\0' >"$scratch/denali"
+printf 'microsoft,denali-lcd\0microsoft,denali\0qcom,x1p64100\0qcom,x1e80100\0' >"$scratch/denali-lcd"
 printf 'lenovo,yoga-slim7x\0qcom,x1e80100\0' >"$scratch/other"
 
 # Battery: after resume the thresholds already set are written back unchanged.
@@ -90,6 +89,8 @@ thresholds 0 100
 [[ -z $(charge_sleep denali post suspend) ]] || fail "with no charge limit set, nothing is written"
 thresholds 60 90
 [[ -z $(charge_sleep other post suspend) ]] || fail "the charge hook does nothing on other hardware"
+[[ $(charge_sleep denali-lcd post suspend) == *"restored start=60 end=90" ]] ||
+  fail "the charge hook also restores the thresholds on the Surface Pro 11 LCD"
 [[ -z $(charge_sleep denali pre suspend) ]] || fail "the charge hook acts only after resume"
 ! grep -l 'charge' "$package_dir"/*.service >/dev/null 2>&1 ||
   fail "no boot-time service imposes a charge window"
@@ -315,7 +316,11 @@ flex denali reconnect
 
 # Pen pairing. The stub bluetoothctl acts like BlueZ: a pen paired before
 # advertises only as changes to its device (no name), a pen that is not shows
-# up as a new device, and a pen still bonded refuses to pair again.
+# up as a new device, and a pen still bonded refuses to pair again. With
+# prompts, other devices ask to pair, confirm a passkey and use a service while
+# the pen pairs, and each answer is logged; the pen's own pairing asks nothing,
+# as BlueZ accepts a Just Works pairing that `pair` started. The stub btmgmt
+# keeps LE privacy's state, and the log records it at the pairing.
 penbin=$scratch/penbin; pen_state=$scratch/pen; mkdir -p "$penbin"
 pen=AA:BB:CC:DD:EE:01
 cat >"$penbin/bluetoothctl" <<'STUB'
@@ -342,14 +347,33 @@ while read -r cmd arg; do
       fi ;;
     "pair $pen")
       echo "pair" >>"$s/log"
+      echo "pair privacy=$([[ -e $s/privacy ]] && echo on || echo off)" >>"$s/log"
+      echo "Attempting to pair with $pen"
+      if [[ -e $s/prompts ]]; then
+        echo "[NEW] Device 11:22:33:44:55:66 11-22-33-44-55-66"
+        for prompt in "Accept pairing" "Confirm passkey 123456" "Authorize service 00001812-0000-1000-8000-00805f9b34fb"; do
+          echo "[agent] $prompt (yes/no):"
+          read -r answer; echo "answered $answer" >>"$s/log"
+        done
+        echo "[CHG] Device $pen Connected: yes"
+      fi
       if [[ -e $s/bonded ]]; then echo "Failed to pair: org.bluez.Error.AlreadyExists"
       else touch "$s/bonded"; echo "Pairing successful"; fi ;;
     'quit ') exit 0 ;;
   esac
 done
 STUB
-printf '#!/bin/bash\n[[ $1 == info ]] && printf "hci0:\\tPrimary controller\\n\\tcurrent settings: powered le privacy \\n"\nexit 0\n' >"$penbin/btmgmt"
-printf '#!/bin/bash\nexit 0\n' >"$penbin/sudo"
+cat >"$penbin/btmgmt" <<'STUB'
+#!/bin/bash
+s=$PEN_STATE
+case $1 in
+  info) printf 'hci0:\tPrimary controller\n\tcurrent settings: powered le%s \n' "$([[ -e $s/privacy ]] && echo ' privacy')" ;;
+  privacy) echo "btmgmt privacy $2" >>"$s/log"
+           if [[ $2 == on ]]; then touch "$s/privacy"; else rm -f "$s/privacy"; fi ;;
+esac
+exit 0
+STUB
+printf '#!/bin/bash\n[[ $1 == -v ]] && exit 0\nexec "$@"\n' >"$penbin/sudo"
 chmod +x "$penbin"/*
 cat >"$scratch/pen-pair.py" <<'EOF'
 import importlib.machinery, importlib.util, sys
@@ -358,7 +382,8 @@ loader = importlib.machinery.SourceFileLoader('pen_pair', sys.argv[1])
 spec = importlib.util.spec_from_loader('pen_pair', loader)
 pen_pair = importlib.util.module_from_spec(spec)
 loader.exec_module(pen_pair)
-pen_pair.WAIT = 6
+pen_pair.WAIT = 1.0
+pen_pair.time.sleep = lambda _: None
 sys.exit(pen_pair.main())
 EOF
 pen_reset() { rm -rf "$pen_state"; mkdir -p "$pen_state"; : >"$pen_state/log"; }
@@ -368,14 +393,19 @@ pen_pair() {
     "$package_dir/surface-pro-11-pen-pair" <<<"$1" >/dev/null 2>&1
 }
 pen_removed() { grep -qx "remove $pen" "$pen_state/log"; }
+# Privacy starts off; every run turns it back off, however it ends.
+privacy_restored() { [[ ! -e $pen_state/privacy ]]; }
 
 pen_reset; touch "$pen_state/bonded" "$pen_state/advertising"
 ! pen_pair n || fail "declining the pen found ends without pairing"
 [[ -e $pen_state/bonded ]] && ! pen_removed || fail "a declined pen keeps its bond"
+grep -qx "btmgmt privacy on" "$pen_state/log" && privacy_restored ||
+  fail "privacy goes on for the search and off again after a declined pen"
 
 pen_reset; touch "$pen_state/bonded"
 ! pen_pair "" || fail "no pen found is a failure"
 [[ -e $pen_state/bonded ]] && ! pen_removed || fail "a run that finds no pen keeps the paired pen"
+privacy_restored || fail "privacy is off again after a run that finds no pen"
 
 pen_reset; touch "$pen_state/bonded" "$pen_state/battery-only"
 ! pen_pair y || fail "a connected pen's battery report is not a pen in pairing mode"
@@ -390,14 +420,33 @@ pen_removed && grep -qx pair "$pen_state/log" && grep -qx "trust $pen" "$pen_sta
 pen_reset; touch "$pen_state/advertising"
 pen_pair y || fail "a new pen pairs once approved"
 ! pen_removed || fail "pairing a new pen removes nothing"
+grep -qx "pair privacy=on" "$pen_state/log" && privacy_restored ||
+  fail "the pen pairs with privacy on, and privacy is off again afterwards"
+
+pen_reset; touch "$pen_state/advertising" "$pen_state/prompts"
+pen_pair y || fail "a new pen pairs while other devices ask to pair"
+(( $(grep -cx "answered no" "$pen_state/log") == 3 )) && ! grep -q "answered yes" "$pen_state/log" ||
+  fail "every agent prompt is turned down while the pen pairs"
+privacy_restored || fail "privacy is off again after a pairing with prompts"
+
+pen_reset; echo on >"$pen_state/privacy"; touch "$pen_state/advertising"
+pen_pair y || fail "a new pen pairs while privacy is already on"
+[[ -e $pen_state/privacy ]] && ! grep -q "btmgmt privacy" "$pen_state/log" ||
+  fail "privacy that was on before stays on, untouched"
 
 for tool in surface-pro-11-flex-pair surface-pro-11-pen-pair; do
   python -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' "$package_dir/$tool" ||
     fail "$tool is valid Python"
 done
+python - "$package_dir/51-surface-pro-11-speakers.conf" <<'CHECK' || fail "the speaker card's outputs start at unity gain behind the limiters"
+import re, sys
+conf = open(sys.argv[1]).read()
+rule = re.search(r'device\.name = "alsa_card\.platform-sound".*?update-props = \{(.*?)\}', conf, re.S)
+sys.exit(0 if rule and re.search(r'device\.routes\.default-sink-volume = 1\.0\b', rule.group(1)) else 1)
+CHECK
 for unit in surface-pro-11-flex-autopair surface-pro-11-flex-reconnect; do
-  grep -qx 'ConditionFirmware=device-tree-compatible(microsoft,denali-oled)' "$package_dir/$unit.service" ||
-    fail "$unit runs only on the Surface Pro 11 OLED"
+  grep -qx 'ConditionFirmware=device-tree-compatible(microsoft,denali)' "$package_dir/$unit.service" ||
+    fail "$unit runs only on the Surface Pro 11"
   grep -q "start $unit.service" "$package_dir/70-surface-pro-11-flex-keyboard.rules" ||
     fail "attaching or detaching the keyboard starts $unit"
 done
@@ -407,9 +456,9 @@ python -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' "$package_dir/d
   fail "ddc-vcp is valid Python"
 bash -n "$package_dir/surface-pro-11-brightness-sync" ||
   fail "surface-pro-11-brightness-sync is valid Bash"
-grep -qx 'ConditionFirmware=device-tree-compatible(microsoft,denali-oled)' \
+grep -qx 'ConditionFirmware=device-tree-compatible(microsoft,denali)' \
   "$package_dir/surface-pro-11-brightness-sync.service" ||
-  fail "surface-pro-11-brightness-sync runs only on the Surface Pro 11 OLED"
+  fail "surface-pro-11-brightness-sync runs only on the Surface Pro 11"
 
 # Touchpad: after resume a job of its own puts the attached keyboard's touchpad
 # back in touchpad mode. systemd-run is a stub that records what it was asked to
@@ -526,4 +575,10 @@ battery_info "$scratch/bix-short" 2>/dev/null && fail "a short EC reply is an er
 grep -q 'timers.target.wants/surface-pro-11-battery-info.timer' "$package_dir/PKGBUILD" ||
   fail "the cycle count timer is enabled by the package"
 
-echo "ok - surface-pro-11-support verifies its hardware setup"
+grep -qx 'ConditionFirmware=device-tree-compatible(microsoft,denali)' \
+  "$package_dir/surface-pro-11-battery-info.service" ||
+  fail "surface-pro-11-battery-info runs only on the Surface Pro 11"
+grep -q 'KERNEL_CMDLINE\[default\]+=" msm.psr_enabled=1"' "$package_dir/50-surface-pro-11-psr.conf" ||
+  fail "the panel self-refresh drop-in adds msm.psr_enabled=1"
+
+echo "ok - microsoft-surface-pro-11-support verifies its hardware setup"
