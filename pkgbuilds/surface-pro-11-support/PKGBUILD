@@ -5,23 +5,23 @@
 
 pkgname=surface-pro-11-support
 pkgver=1
-pkgrel=5.4
+pkgrel=5.5
 pkgdesc="Hardware support for the Microsoft Surface Pro 11 (Snapdragon X Elite) not yet carried upstream"
 arch=('aarch64')
 # Qualcomm-only: the pacman platform guard keeps it off other hardware.
 groups=('omarchy-platform-qualcomm')
 url="https://github.com/omacom/omarchy-pkgs"
 license=('MIT' 'BSD-3-Clause' 'LicenseRef-QualcommAtheros-ath10k')
-depends=('alsa-ucm-conf' 'bluez' 'bluez-utils' 'ddcutil' 'lsp-plugins-lv2' 'pipewire' 'python'
-         'surface-snapdragon-addresses' 'upower>=1.91.5-1.1' 'wireplumber')
+# linux-firmware-qcom ships the AudioReach topology from 20261019-1.1, which
+# carries Qualcomm's v1.0.5 sync.
+depends=('alsa-ucm-conf' 'bluez' 'bluez-utils' 'ddcutil' 'linux-firmware-qcom>=20261019-1.1'
+         'lsp-plugins-lv2' 'pipewire' 'python' 'surface-snapdragon-addresses' 'upower>=1.91.5-1.1'
+         'wireplumber')
 optdepends=('iptsd: pen and touch, restarted across suspend by this package')
-makedepends=('alsa-ucm-conf' 'alsa-utils' 'git' 'linux-firmware-atheros' 'm4' 'python' 'zstd')
+makedepends=('alsa-ucm-conf' 'linux-firmware-atheros' 'python' 'zstd')
 # The board data is an ELF image; stripping it corrupts the record.
 options=('!debug' '!strip')
-_audioreach_commit=d7a5e9d80ad18a7a6844eeb32cacbdeea0e7e677
 source=(
-  "audioreach-topology::git+https://github.com/linux-msm/audioreach-topology.git#commit=${_audioreach_commit}"
-  'X1E80100-Microsoft-Surface-Pro-11.m4'
   'MICROSOFT-Surface-Pro-11.conf'
   'Surface11-HiFi.conf'
   'extract-ath12k-board.py'
@@ -55,9 +55,7 @@ source=(
   'README.package.md'
   'LICENSE'
 )
-sha256sums=('f571d0667e48da9967db20770beff426a5e0372836a8a2bb66cd806d43b0f580'
-            '42325da83575fc78d28c46f38057fbf93ae1cbbca486c55b5d771a98b6bf7d8d'
-            '3823fdb49f0ed5e97e6faa23b53fda90f8135e7a4e66c3864dc973d036c42b78'
+sha256sums=('3823fdb49f0ed5e97e6faa23b53fda90f8135e7a4e66c3864dc973d036c42b78'
             'f30106a4319457137363ece6dbbd569326996c0e2f3e7a65e54d6b21a9372f25'
             'feb8880bdca4c3061093d2b8aa2464efad9f2ff9a03cdb09a799da620a0791b4'
             'd2d12a13625950787a05d45674dca3f7f4e7bff7c01d0d3848486f70eb189767'
@@ -87,7 +85,7 @@ sha256sums=('f571d0667e48da9967db20770beff426a5e0372836a8a2bb66cd806d43b0f580'
             '755d6e4e6106247a4883252dabd5afa72ed3f871a5b45d31b0e9a83b4fa6e60b'
             '16117bf87eff67463962e1de50799e1dd05baa8b39746cf1b93f2f445bb7c84f'
             'eb703cfc8e06210e1340c3272c0da6a0426f525fa0f49935b69b8b9e1546e7f4'
-            'a8fec65fddcca4f4fcced4c72640ae343ebe13b5ed939340ed1548efda926807'
+            'b408092ef22e68bae8be39bb4b957d2db01e1e0000bc8cb7ea1a2b38ae0d331e'
             'f74f925ccd6fc2f4b9bdf7682f6927a64809c8668e8232997c541cc6f992787b')
 
 # The Surface reports generic WCN7850 identifiers (subsystem 17cb:1107,
@@ -97,16 +95,8 @@ sha256sums=('f571d0667e48da9967db20770beff426a5e0372836a8a2bb66cd806d43b0f580'
 _board_record='bus=pci,vendor=17cb,device=1107,subsystem-vendor=17cb,subsystem-device=3378,qmi-chip-id=2,qmi-board-id=255'
 _board_bytes=88872
 _board_sha256=0ef5f6f3cb124f33c6de52371819ccd7c13763ceb86d476a178fd56e4cdc26a3
-# Deliberate tripwire: the topology must stay byte-identical to the one
-# validated on the device. An alsa-utils change to alsatplg's output fails the
-# build here and needs a fresh check on hardware before this value moves.
-_topology_sha256=886db8d98974d9b4f7eb87e10cde0bd2a129dc8e37307f32bb156728c67291ca
 
 build() {
-  m4 -I "$srcdir/audioreach-topology" X1E80100-Microsoft-Surface-Pro-11.m4 >topology.conf
-  alsatplg -c topology.conf -o X1E80100-Microsoft-Surface-Pro-11-tplg.bin
-  echo "$_topology_sha256  X1E80100-Microsoft-Surface-Pro-11-tplg.bin" | sha256sum -c
-
   local container=/usr/lib/firmware/ath12k/WCN7850/hw2.0/board-2.bin
   if [[ ! -f $container && -f $container.zst ]]; then
     zstd -dq "$container.zst" -o board-2.bin
@@ -119,11 +109,9 @@ build() {
 
 package() {
   install -Dm644 board.bin "$pkgdir/usr/lib/firmware/ath12k/WCN7850/hw2.0/board.bin"
-  install -Dm644 X1E80100-Microsoft-Surface-Pro-11-tplg.bin \
-    "$pkgdir/usr/lib/firmware/qcom/x1e80100/X1E80100-Microsoft-Surface-Pro-11-tplg.bin"
   # Compressed, so linux-firmware's copy is the one the kernel loads once it ships
-  # the same file (it tries a plain name, then .zst, then .xz), and the two
-  # packages never install the same path.
+  # a Surface Pro 11 board file (it tries a plain name, then .zst, then .xz), and
+  # the two packages never install the same path.
   find "$pkgdir/usr/lib/firmware" -type f -exec xz -C crc32 {} +
 
   # Its own folder: alsa-ucm-conf ships different Surface Pro 11 files at
@@ -194,8 +182,6 @@ package() {
 
   install -Dm644 README.package.md "$pkgdir/usr/share/doc/$pkgname/README.md"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  install -Dm644 "$srcdir/audioreach-topology/LICENSE.BSD-3-Clause" \
-    "$pkgdir/usr/share/licenses/$pkgname/LICENSE.audioreach-topology"
   install -Dm644 /usr/share/licenses/alsa-ucm-conf/LICENSE \
     "$pkgdir/usr/share/licenses/$pkgname/LICENSE.alsa-ucm-conf"
   install -Dm644 /usr/share/licenses/linux-firmware-atheros/LICENSE.QualcommAtheros_ath10k \
