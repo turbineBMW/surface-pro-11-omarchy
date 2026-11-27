@@ -115,11 +115,28 @@ one of them, the package is "caught up": check Omarchy's build (fixes we
 make by leaving one of Omarchy's patches out are not seen by the check), then delete the package's directory here, and pacman
 moves to Omarchy's next release.
 
+Being behind is not by itself a reason to rebase. This repository comes
+before `[omarchy]` in `pacman.conf`, so a newer Omarchy build of a package
+we publish does not replace ours. It can be pulled in another way, though: an
+Omarchy package that needs a newer version than ours (Omarchy's
+`linux-omarchy-dtbs` needs its own kernel's version, which took this
+machine to Omarchy's kernel before we published our own dtbs). So
+`bin/watch-omarchy` reports what does call for action:
+
+1. Omarchy's changes since our base to the recipes we carry, sorted by what
+   their patches touch: the Surface Pro 11's trees and the drivers we patch
+   or use (rebase soon), shared Qualcomm code, the configuration or the kernel
+   version (worth a look), and other machines (only counted).
+2. Omarchy packages that need a version of one of ours that ours is not.
+3. Our shell plugin patches against the plugins of the shell edge installs
+   (`omarchy-dev`), run through the same generator as the pacman hook.
+
 ## Maintaining
 
 ```sh
 bin/build [PKGBASE...]    # build into out/aarch64, skipping versions already there
 bin/check-upstream        # compare with Omarchy edge
+bin/watch-omarchy         # what in Omarchy needs our attention (Markdown)
 bin/publish fetch|upload  # sync out/aarch64 with the GitHub release
 bin/export-key FPR        # put the signing key into the keyring package and install.sh
 ```
@@ -130,6 +147,14 @@ rebuilding packages whose version changed, and publishes the release
 `SIGNING_KEY` secret (armored private signing key, no passphrase) and the
 `SIGN_KEY` variable (its fingerprint). A daily job fails when Omarchy has
 published every fix a carried package carries, and warns when a carried
-package is behind Omarchy's version.
+package is behind Omarchy's version. The same job runs `bin/watch-omarchy`
+and keeps its report in one issue labelled `omarchy-watch`: it opens when
+something needs action, gets a comment when the findings change (both send
+a notification), and closes when nothing does any more.
+
+The kernel builds with ccache, kept between runs in the Actions cache and
+saved only after a kernel build. A rebase that leaves Omarchy's
+configuration alone recompiles only the files its patches change; a new
+configuration touches every file, and the build takes its full two hours.
 
 What comes next is in [docs/ROADMAP.md](docs/ROADMAP.md).

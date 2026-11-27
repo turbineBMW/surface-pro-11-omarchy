@@ -9,3 +9,4 @@ pkgbuilds/facelock/facelock/
 pkgbuilds/*/qualcomm-isp/
 pkgbuilds/qualcomm-isp-libcamera/libcamera-*.tar.gz
 pkgbuilds/qualcomm-isp-autoframe/*.onnx
+.ccache/

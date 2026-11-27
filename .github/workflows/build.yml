@@ -42,6 +42,16 @@ jobs:
           key=$("$RUNNER_TEMP/omarchy-pkgs/bin/builder-image" key --arch aarch64 --mirror edge)
           echo "ref=ghcr.io/omacom/omarchy-pkg-builder:$key" >>"$GITHUB_OUTPUT"
 
+      # The compiler cache from the last kernel build. A rebase that leaves
+      # Omarchy's configuration alone recompiles only what changed; a new
+      # configuration touches every file, and the build takes its full time.
+      - name: Restore the compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .ccache
+          key: ccache-aarch64-${{ github.run_id }}
+          restore-keys: ccache-aarch64-
+
       - name: Build
         env:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
@@ -49,25 +59,49 @@ jobs:
           IMAGE: ${{ steps.image.outputs.ref }}
         run: |
           docker run --rm -v "$PWD:/repo" -e SIGNING_KEY -e SIGN_KEY -e INSTALL_MAKEDEPENDS=1 \
+            -e CCACHE_DIR=/repo/.ccache -e CCACHE_BASEDIR=/repo -e CCACHE_NOHASHDIR=1 \
+            -e CCACHE_COMPILERCHECK=content -e CCACHE_MAXSIZE=6G \
             "$IMAGE" bash -c '
               set -euo pipefail
               sudo chown -R builder: /repo
               printf "\n[omarchy]\nServer = https://pkgs.omarchy.org/edge/\$arch\n" | sudo tee -a /etc/pacman.conf >/dev/null
               sudo sed -i "s|^PACKAGER=.*|PACKAGER=\"Brandon Williams <turbine.bmw@gmail.com>\"|" /etc/makepkg.conf
               sudo pacman -Syu --noconfirm
+              # makepkg puts ccache first in PATH for every package it builds.
+              sudo pacman -S --needed --noconfirm ccache
+              sudo sed -i "s/^\(BUILDENV=.*\)!ccache/\1ccache/" /etc/makepkg.conf
+              mkdir -p /repo/.ccache && ccache -z
               if [[ -n $SIGNING_KEY ]]; then
                 printf "%s\n" "$SIGNING_KEY" | gpg --batch --import
               else
                 unset SIGN_KEY
                 echo "::warning::No SIGNING_KEY secret: building unsigned, nothing will be published"
               fi
-              cd /repo && bin/build'
+              cd /repo && bin/build
+              ccache -s'
 
       # The container builds as its own user; give the checkout back even
       # when the build fails, or the job's cleanup cannot touch .git.
       - name: Give the checkout back
         if: always()
         run: sudo chown -R "$(id -u):$(id -g)" .
+
+      # Only a kernel build fills the cache enough to be worth its upload;
+      # saving after the small packages would just evict it.
+      - name: Did the kernel build
+        id: kernel
+        if: always()
+        run: |
+          if grep -q '^linux-omarchy-[0-9]' out/aarch64/.built 2>/dev/null; then
+            echo "built=true" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Save the compiler cache
+        if: always() && steps.kernel.outputs.built == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .ccache
+          key: ccache-aarch64-${{ github.run_id }}
 
       # The signed repository, for the publish job: a failed publish can be
       # re-run on its own without building the kernel again.
@@ -117,6 +151,9 @@ jobs:
   upstream:
     if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v4
       - name: Compare with Omarchy edge
@@ -129,3 +166,21 @@ jobs:
           # is merely behind Omarchy's version gets a warning.
           docker run --rm -v "$PWD:/repo:ro" -v "$RUNNER_TEMP/omarchy-pkgs:/omarchy-pkgs:ro" \
             -e OMARCHY_PKGS=/omarchy-pkgs "$image" bash -c 'cd /repo && bin/check-upstream edge'
+
+      # What in Omarchy needs our attention: changes reaching the Surface Pro
+      # 11 in the recipes we carry, packages that would pull Omarchy's build
+      # of one of ours, plugin patches Omarchy broke. Kept in one issue,
+      # which notifies when it opens or its findings change.
+      - name: Watch Omarchy
+        # Also when the comparison above failed: that only means a package
+        # here has caught up.
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          image=ghcr.io/omacom/omarchy-pkg-builder:$("$RUNNER_TEMP/omarchy-pkgs/bin/builder-image" key --arch aarch64 --mirror edge)
+          status=0
+          docker run --rm -v "$PWD:/repo:ro" "$image" bash -c 'cd /repo && bin/watch-omarchy edge' \
+            >"$RUNNER_TEMP/watch.md" || status=$?
+          cat "$RUNNER_TEMP/watch.md" >>"$GITHUB_STEP_SUMMARY"
+          bin/watch-issue "$RUNNER_TEMP/watch.md" "$status"

@@ -1,0 +1,228 @@
+#!/bin/bash
+# What in Omarchy needs our attention: a Markdown report on stdout.
+#
+#   bin/watch-omarchy [CHANNEL]    channel: edge (default), rc or stable
+#
+# Our repository sits above [omarchy] in pacman.conf, so a newer Omarchy
+# package does not replace one of ours by itself: we rebase on purpose, not
+# on every pkgrel. This says when to.
+#
+#   1. Omarchy's changes to the recipes we carry since our base, sorted by
+#      what they touch: the Surface Pro 11 (rebase soon), shared Snapdragon
+#      or Qualcomm code and the kernel configuration (review), other
+#      machines (counted only).
+#   2. Omarchy packages that need a version of one of our packages that ours
+#      is not: pacman would then take Omarchy's instead, as Omarchy's dtbs
+#      pulled Omarchy's kernel past ours on 2026-11-27.
+#   3. Our shell plugin patches against Omarchy's current plugins, run
+#      through surface-pro-11-plugins-generate exactly as the pacman hook
+#      runs it, so a patch Omarchy broke shows here before an update warns.
+#
+# Exit status: 0 nothing to act on, 3 something to act on (sections 1's
+# Surface Pro 11 part, 2 or 3), anything else an error.
+#
+# OMARCHY_PKGS can point at a clone of omarchy-pkgs with its history (a
+# blobless clone is enough) that this user can write to; otherwise one is
+# made here.
+set -euo pipefail
+
+root=$(realpath "${BASH_SOURCE[0]%/*}/..")
+channel=${1:-edge}
+arch=$(uname -m)
+mirror=https://pkgs.omarchy.org/$channel/$arch
+web=https://github.com/omacom/omarchy-pkgs/commit
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+# Kernel paths whose change reaches the Surface Pro 11 directly, and paths of
+# code it shares with the other Snapdragon and Qualcomm machines.
+sp11_paths='dts/qcom/(x1e80100-microsoft-denali|x1p64100-microsoft-denali|x1-microsoft-denali|hamoa|x1e80100\.dtsi|x1p64100\.dtsi)|drivers/platform/surface/|drivers/soundwire/|sound/soc/codecs/wsa884x|drivers/media/platform/qcom/camss|phy-qcom-mipi-csi2|drivers/hid/spi-hid'
+sp11_words='surface pro 11|denali'
+shared_paths='qcom|/msm/|soundwire|arm64|ath1[12]k|ucsi|pmic_glink|battmgr|scmi'
+# Device tree files that every X1 machine includes. Any other tree is one
+# machine's, and not ours unless sp11_paths names it.
+shared_dts='dts/qcom/(x1e80100|x1e78100|x1e84100|x1p42100|x1p64100|purwa|x1-(crd|el2|common))[^/]*\.dtsi'
+
+attention=0
+og() { git -c safe.directory='*' -C "$pkgs" "$@"; }
+
+curl -fsSL "$mirror/omarchy.db?$(date +%s)" -o "$tmp/omarchy.db"
+curl -fsSL "$mirror/omarchy.files?$(date +%s)" -o "$tmp/omarchy.files"
+mkdir "$tmp/db" "$tmp/files"
+tar -xf "$tmp/omarchy.db" -C "$tmp/db"
+tar -xf "$tmp/omarchy.files" -C "$tmp/files"
+
+# A blobless clone fetches the old recipes read below as they are asked for,
+# so it has to be one this user can write to; otherwise make one (~15 MB).
+pkgs=${OMARCHY_PKGS:-}
+if [[ -z $pkgs || ! -w $pkgs/.git/objects ]]; then
+  pkgs=$tmp/omarchy-pkgs
+  git clone -q --filter=blob:none --no-checkout https://github.com/omacom/omarchy-pkgs "$pkgs"
+fi
+
+# Our packages: pkgbase, pkgname, full version and base (pkgrel before .N).
+declare -A our_version=() our_base=() carried=()
+for dir in "$root"/pkgbuilds/*/; do
+  pkgbase=$(basename "$dir")
+  info=$(cd "$dir" && t=$(mktemp -d -p "$tmp") && BUILDDIR=$t PKGDEST=$t SRCDEST=$t SRCPKGDEST=$t LOGDEST=$t makepkg --printsrcinfo)
+  epoch=$(sed -n 's/^\tepoch = //p' <<<"$info" | head -1)
+  pkgver=$(sed -n 's/^\tpkgver = //p' <<<"$info" | head -1)
+  pkgrel=$(sed -n 's/^\tpkgrel = //p' <<<"$info" | head -1)
+  while read -r name; do
+    our_version[$name]=${epoch:+$epoch:}$pkgver-$pkgrel
+  done < <(sed -n 's/^pkgname = //p' <<<"$info")
+  if [[ $pkgrel == *.* && -n $(og ls-tree HEAD -- "pkgbuilds/$pkgbase") ]]; then
+    carried[$pkgbase]=1
+    our_base[$pkgbase]=${epoch:+$epoch:}$pkgver-${pkgrel%%.*}
+  fi
+done
+
+# "epoch:pkgver-pkgrel" of omarchy-pkgs' recipe $1 at commit $2
+recipe_version() {
+  local text epoch ver rel
+  text=$(og show "$2:pkgbuilds/$1/PKGBUILD" 2>/dev/null) || return 1
+  epoch=$(sed -n 's/^epoch=//p' <<<"$text" | head -1)
+  ver=$(sed -n 's/^pkgver=//p' <<<"$text" | head -1)
+  rel=$(sed -n 's/^pkgrel=//p' <<<"$text" | head -1)
+  printf '%s%s-%s\n' "${epoch:+$epoch:}" "$ver" "$rel"
+}
+
+echo "# Omarchy $channel: what needs attention"
+echo
+echo "Checked $(date -u +'%Y-%m-%d %H:%M UTC') against omarchy-pkgs $(og rev-parse --short HEAD)."
+
+# ---- 1. Changes to the recipes we carry -----------------------------------
+echo
+echo "## 1. Omarchy's changes to the recipes we carry"
+fingerprint=()
+for pkgbase in $(printf '%s\n' "${!carried[@]}" | sort); do
+  base=${our_base[$pkgbase]}
+  # The newest commit whose recipe is at our base version; what follows it
+  # is what our build does not have.
+  base_commit=
+  while read -r commit; do
+    if [[ $(recipe_version "$pkgbase" "$commit" || true) == "$base" ]]; then
+      base_commit=$commit
+      break
+    fi
+  done < <(og log -n 300 --format=%H HEAD -- "pkgbuilds/$pkgbase/PKGBUILD")
+  echo
+  if [[ -z $base_commit ]]; then
+    echo "### \`$pkgbase\`: base $base not found in omarchy-pkgs' last 300 recipe commits"
+    continue
+  fi
+  mapfile -t commits < <(og log --reverse --format=%H "$base_commit..HEAD" -- "pkgbuilds/$pkgbase")
+  latest=$(recipe_version "$pkgbase" HEAD)
+  if (( ${#commits[@]} == 0 )); then
+    echo "### \`$pkgbase\`: up to date with Omarchy's $latest"
+    continue
+  fi
+  echo "### \`$pkgbase\`: ours is on $base, Omarchy is at $latest (${#commits[@]} commits)"
+  sp11=() shared=() other=0
+  for commit in "${commits[@]}"; do
+    subject=$(og log -1 --format=%s "$commit")
+    diff=$(og show --format= "$commit" -- "pkgbuilds/$pkgbase")
+    # Kernel paths the changed patches touch, and the recipe's own files.
+    paths=$(sed -nE 's/^[-+](\+\+\+ b|--- a|diff --git a)\/([^ ]+).*/\2/p' <<<"$diff" | sort -u)
+    files=$(og show --format= --name-only "$commit" -- "pkgbuilds/$pkgbase")
+    shared_candidates=$(grep -v '^arch/arm64/boot/dts/' <<<"$paths"; grep -E "$shared_dts" <<<"$paths" || true)
+    line="- [\`${commit:0:8}\`]($web/$commit) $subject"
+    if grep -qiE "$sp11_paths" <<<"$paths" || grep -qiE "$sp11_words" <<<"$subject"; then
+      sp11+=("$line")
+      fingerprint+=("$commit")
+    elif grep -qiE "$shared_paths" <<<"$shared_candidates" || grep -qE '/config\.[a-z0-9_]+$' <<<"$files" ||
+         grep -q '^[-+]pkgver=' <<<"$diff"; then
+      shared+=("$line")
+    else
+      other=$((other + 1))
+    fi
+  done
+  if (( ${#sp11[@]} )); then
+    attention=1
+    echo
+    echo "**Touches Surface Pro 11 code (its trees or drivers we patch or use), rebase soon:**"
+    printf '%s\n' "${sp11[@]}"
+  fi
+  if (( ${#shared[@]} )); then
+    echo
+    echo "Shared Snapdragon or Qualcomm code, the configuration or the kernel version, worth a look:"
+    printf '%s\n' "${shared[@]}"
+  fi
+  (( other == 0 )) || { echo; echo "$other more for other machines."; }
+done
+
+# ---- 2. Omarchy packages our versions do not satisfy ----------------------
+echo
+echo "## 2. Omarchy packages that need a version of ours that ours is not"
+hazards=()
+for desc in "$tmp"/db/*/desc; do
+  name=$(awk '/^%NAME%$/ { getline; print; exit }' "$desc")
+  # One we publish too is ours to install, with its own dependencies: our
+  # repository comes first.
+  [[ -z ${our_version[$name]:-} ]] || continue
+  while read -r dep; do
+    [[ $dep =~ ^([^<>=]+)(>=|<=|=|>|<)(.+)$ ]] || continue
+    want=${BASH_REMATCH[1]} op=${BASH_REMATCH[2]} ver=${BASH_REMATCH[3]}
+    ours=${our_version[$want]:-}
+    [[ -n $ours ]] || continue
+    cmp=$(vercmp "$ours" "$ver")
+    case $op in
+      '>=') (( cmp >= 0 )) ;; '>') (( cmp > 0 )) ;; '=') (( cmp == 0 )) ;;
+      '<=') (( cmp <= 0 )) ;; '<') (( cmp < 0 )) ;;
+    esac && continue
+    hazards+=("- \`$name\` needs \`$want$op$ver\`; ours is $ours")
+    fingerprint+=("$name:$want$op$ver")
+  done < <(awk '/^%DEPENDS%$/ { on = 1; next } /^$/ { on = 0 } on' "$desc")
+done
+echo
+if (( ${#hazards[@]} )); then
+  attention=1
+  echo "**Installing one of these takes Omarchy's package instead of ours:**"
+  printf '%s\n' "${hazards[@]}"
+else
+  echo "None."
+fi
+
+# ---- 3. Our plugin patches on Omarchy's current shell plugins -------------
+echo
+echo "## 3. Our shell plugin patches on Omarchy's current plugins"
+plugins_share=$root/pkgbuilds/surface-pro-11-plugins
+generate=$plugins_share/surface-pro-11-plugins-generate
+# The shell a machine on this channel runs: edge installs omarchy-dev (which
+# provides omarchy), rc and stable install omarchy itself.
+shell_pkg=omarchy
+[[ $channel != edge ]] || shell_pkg=omarchy-dev
+mapfile -t shells < <(grep -lE '^usr/share/omarchy/shell/plugins/.+/manifest\.json$' "$tmp"/files/"$shell_pkg"-[0-9]*/files | xargs -r -n1 dirname)
+# The built-in plugins our clones are made from
+sources=$(jq -r .source "$plugins_share"/clones/*/clone.json 2>/dev/null | sort -u)
+if [[ ! -x $generate ]] || (( ${#shells[@]} == 0 )); then
+  echo
+  echo "Nothing to check (no generator here, or no Omarchy package ships shell plugins)."
+fi
+for shell in "${shells[@]}"; do
+  file=$(awk '/^%FILENAME%$/ { getline; print; exit }' "$tmp/db/${shell##*/}/desc")
+  name=$(awk '/^%NAME%$/ { getline; print; exit }' "$tmp/db/${shell##*/}/desc")
+  version=$(awk '/^%VERSION%$/ { getline; print; exit }' "$tmp/db/${shell##*/}/desc")
+  mkdir -p "$tmp/shell/$name" "$tmp/out/$name"
+  curl -fsSL "$mirror/$file" -o "$tmp/$file"
+  bsdtar -xf "$tmp/$file" -C "$tmp/shell/$name" usr/share/omarchy/shell/plugins
+  # A package with plugins of its own but none of the built-ins we clone
+  shipped=$(find "$tmp/shell/$name" -name manifest.json -exec jq -r '.id // empty' {} + 2>/dev/null | sort -u)
+  [[ -n $(comm -12 <(echo "$sources") <(echo "$shipped")) ]] || continue
+  warnings=$(SURFACE_PRO11_PLUGINS_SHARE=$plugins_share SURFACE_PRO11_PLUGINS_OUT=$tmp/out/$name \
+    OMARCHY_SHELL_PLUGINS=$tmp/shell/$name/usr/share/omarchy/shell/plugins \
+    "$generate" 2>&1 >/dev/null | grep -E 'no longer applies|no built-in' || true)
+  echo
+  if [[ -n $warnings ]]; then
+    attention=1
+    echo "**\`$name\` $version breaks:**"
+    sed 's/^surface-pro-11-plugins: /- /' <<<"$warnings"
+    fingerprint+=("$name:$(md5sum <<<"$warnings" | cut -c1-12)")
+  else
+    echo "\`$name\` $version: every patch applies."
+  fi
+done
+
+echo
+echo "<!-- fingerprint: $(printf '%s\n' "${fingerprint[@]}" | sort | md5sum | cut -c1-16) -->"
+(( attention == 0 )) || exit 3
