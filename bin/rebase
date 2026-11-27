@@ -1,0 +1,548 @@
+#!/usr/bin/env python3
+"""Rebase a carried package onto Omarchy's current recipe.
+
+    bin/rebase [--ref REF] [--check] PKGBASE...
+
+A carried package is Omarchy's recipe plus our changes. Each records the
+omarchy-pkgs commit its recipe was taken from in pkgbuilds/PKGBASE/.omarchy-base.
+With three versions of the recipe, Omarchy's at that base (O), ours (U) and
+Omarchy's now (N), the rebase puts our changes on N the way git would:
+
+  - lines we added to or removed from a source array are added after the
+    same anchor line in N's array, or removed from it
+  - files we added are kept; files only Omarchy changed take Omarchy's
+    version; files both changed are merged three ways (git merge-file)
+  - the rest of the PKGBUILD is merged three ways as well, with pkgrel set
+    to Omarchy's plus .1
+  - the checksum arrays are regenerated: Omarchy's sums for its remote
+    sources, SKIP where Omarchy skips, computed sums for local files
+
+and .omarchy-base moves to N. The rows of the top-level README that name
+the package's version are updated. Nothing is committed.
+
+Conflicts (an anchor that is gone, a file both sides changed that does not
+merge, a file Omarchy deleted that we changed) are listed, with markers
+left in merged files, and the exit status is 1. Our patches that Omarchy
+now carries under another name are not detected here: --check runs
+makepkg's prepare(), where they fail as "Reversed (or previously applied)".
+
+--check also verifies the sources. Run it before building; it needs the
+package's makedepends (the dtbs' prepare() needs linux-omarchy-headers).
+
+OMARCHY_PKGS can point at a writable clone of omarchy-pkgs (blobless is
+enough); otherwise one is made. REF defaults to the clone's origin HEAD.
+"""
+
+import argparse
+import difflib
+import hashlib
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+IGNORED = ('.omarchy/',)          # Omarchy's own CI metadata, not carried
+ARRAY = re.compile(r'^([A-Za-z0-9_]+)=\(')
+SOURCE = re.compile(r'^source(_[A-Za-z0-9_]+)?$')
+SUMS = re.compile(r'^(md5|sha1|sha224|sha256|sha384|sha512|b2|ck)sums(_[A-Za-z0-9_]+)?$')
+HASHES = {'md5': 'md5', 'sha1': 'sha1', 'sha224': 'sha224', 'sha256': 'sha256',
+          'sha384': 'sha384', 'sha512': 'sha512', 'b2': 'blake2b'}
+
+
+def run(*args, cwd=None, check=True):
+    return subprocess.run(args, cwd=cwd, check=check, text=True,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+
+class Conflicts(list):
+    def add(self, msg):
+        self.append(msg)
+        print(f'  CONFLICT: {msg}')
+
+
+# ---- PKGBUILD arrays ---------------------------------------------------------
+
+def blocks(lines):
+    """[(name, start, end)] of the source and checksum arrays, end inclusive."""
+    out = []
+    i = 0
+    while i < len(lines):
+        m = ARRAY.match(lines[i])
+        name = m.group(1) if m else None
+        if name and (SOURCE.match(name) or SUMS.match(name)):
+            # The array ends on the first line, past its opening, that is not a
+            # comment and ends in ')' (comments inside may hold parentheses).
+            j = i
+            while j == i and lines[j].rstrip().endswith(')') is False or \
+                    j > i and (lines[j].lstrip().startswith('#') or not lines[j].rstrip().endswith(')')):
+                j += 1
+            out.append((name, i, j))
+            i = j + 1
+        else:
+            i += 1
+    return out
+
+
+def split(text):
+    """The PKGBUILD with each array replaced by a placeholder line, and the arrays."""
+    lines = text.split('\n')
+    arrays = {}
+    out = []
+    pos = 0
+    for name, start, end in blocks(lines):
+        out += lines[pos:start]
+        out.append(f'@@ARRAY {name}@@')
+        arrays[name] = lines[start:end + 1]
+        pos = end + 1
+    out += lines[pos:]
+    return '\n'.join(out), arrays
+
+
+def join(text, arrays):
+    out = []
+    for line in text.split('\n'):
+        m = re.fullmatch(r'@@ARRAY (\S+)@@', line)
+        out += arrays[m.group(1)] if m else [line]
+    return '\n'.join(out)
+
+
+def rebase_array(name, o, u, n, conflicts):
+    """Our line changes O -> U of one source array, put on N's."""
+    if u == o:
+        return n
+    result = list(n)
+    sm = difflib.SequenceMatcher(a=o, b=u, autojunk=False)
+    inserted_after = {}            # anchor index in result -> lines placed so far
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        if tag in ('delete', 'replace'):
+            for line in o[i1:i2]:
+                if line in result:
+                    result.remove(line)
+        if tag in ('insert', 'replace'):
+            anchor = o[i1 - 1] if i1 > 0 else o[0]
+            new = [l for l in u[j1:j2] if l not in result]
+            for l in u[j1:j2]:
+                if l in result:
+                    print(f'  {name}: Omarchy already lists {l.strip()}')
+            if not new:
+                continue
+            if anchor not in result:
+                conflicts.add(f'{name}: anchor {anchor.strip()!r} is gone from Omarchy\'s array; '
+                              f'{len(new)} line(s) of ours put at its end')
+                at = len(result) - 1
+            else:
+                at = result.index(anchor) + 1
+            at += inserted_after.get(anchor, 0)
+            result[at:at] = new
+            inserted_after[anchor] = inserted_after.get(anchor, 0) + len(new)
+    return result
+
+
+# ---- three-way file merge ----------------------------------------------------
+
+def merge3(o, u, n, label, conflicts):
+    if u == o:
+        return n
+    if n == o or n == u:
+        return u
+    with tempfile.TemporaryDirectory() as t:
+        paths = []
+        for tag, text in (('ours', u), ('base', o), ('theirs', n)):
+            p = Path(t, tag)
+            p.write_text(text)
+            paths.append(str(p))
+        r = run('git', 'merge-file', '-p', '-L', 'ours', '-L', 'omarchy-base', '-L', 'omarchy',
+                *paths, check=False)
+    if r.returncode < 0 or r.returncode > 127:
+        raise SystemExit(f'git merge-file failed on {label}: {r.stderr}')
+    if r.returncode:
+        conflicts.add(f'{label}: {r.returncode} hunk(s) did not merge (markers left in the file)')
+    return r.stdout
+
+
+# ---- checksums ---------------------------------------------------------------
+
+def evaluated(directory, names):
+    """{array name: [entries]} as makepkg sees them."""
+    script = r'''
+source ./PKGBUILD >/dev/null 2>&1
+for a in "$@"; do
+  printf '%s\0' "@@$a"
+  eval 'for e in "${'"$a"'[@]}"; do printf "%s\0" "$e"; done'
+done'''
+    r = run('bash', '-c', script, 'x', *names, cwd=directory)
+    out, cur = {}, None
+    for item in r.stdout.split('\0')[:-1]:
+        if item.startswith('@@'):
+            cur = item[2:]
+            out[cur] = []
+        else:
+            out[cur].append(item)
+    return out
+
+
+def sums_map(directory, text):
+    """{sums array: {source entry: sum}} of a PKGBUILD."""
+    names = [b[0] for b in blocks(text.split('\n'))]
+    ev = evaluated(directory, names)
+    out = {}
+    for name in names:
+        m = SUMS.match(name)
+        if not m:
+            continue
+        src = 'source' + (m.group(2) or '')
+        out[name] = dict(zip(ev.get(src, []), ev[name]))
+    return out
+
+
+def regenerate_sums(directory, text, n_sums, u_sums, conflicts):
+    lines = text.split('\n')
+    names = [b[0] for b in blocks(lines)]
+    ev = evaluated(directory, names)
+    arrays = {}
+    for name in names:
+        m = SUMS.match(name)
+        if not m:
+            continue
+        kind, suffix = m.group(1), m.group(2) or ''
+        values = []
+        for entry in ev.get('source' + suffix, []):
+            local = entry.split('::')[0] if '::' in entry else entry
+            file = Path(directory, local.rsplit('/', 1)[-1])
+            known = n_sums.get(name, {}).get(entry) or u_sums.get(name, {}).get(entry)
+            if '://' in entry or not file.is_file():
+                if known is None:
+                    conflicts.add(f'{name}: no sum known for {entry}')
+                    known = 'SKIP'
+                values.append(known)
+            elif known == 'SKIP':
+                values.append('SKIP')
+            elif kind == 'ck':
+                values.append(run('cksum', str(file)).stdout.split()[0])
+            else:
+                values.append(hashlib.new(HASHES[kind], file.read_bytes()).hexdigest())
+        pad = ' ' * (len(name) + 2)
+        body = [f"{name}=('{values[0]}'" if values else f'{name}=()']
+        body += [f"{pad}'{v}'" for v in values[1:]]
+        if values:
+            body[-1] += ')'
+        arrays[name] = body
+    out, pos = [], 0
+    for name, start, end in blocks(lines):
+        out += lines[pos:start]
+        out += arrays.get(name, lines[start:end + 1])
+        pos = end + 1
+    out += lines[pos:]
+    return '\n'.join(out)
+
+
+# ---- patches Omarchy now carries -----------------------------------------------
+
+def changes(data):
+    """The lines a patch adds and removes, as a multiset: context and hunk
+    order differ between rebased copies of the same change."""
+    from collections import Counter
+    out, in_hunk = Counter(), False
+    for line in data.decode(errors='replace').split('\n'):
+        if line.startswith('diff --git'):
+            in_hunk = False
+        if line.startswith('@@'):
+            in_hunk = True
+            continue
+        # '-- ' is format-patch's signature line, not a removed line.
+        if in_hunk and line[:1] in '+-' and not line.startswith(('+++ ', '--- ')) and line.rstrip() != '--':
+            out[line.rstrip()] += 1
+    return out
+
+
+def carried_by_omarchy(ours, theirs):
+    """{our patch: Omarchy's patch making the same changes}"""
+    sigs = {}
+    for name, data in theirs.items():
+        if name.endswith('.patch'):
+            sigs.setdefault(frozenset(changes(data).items()), name)
+    found = {}
+    for name, data in ours.items():
+        if name.endswith('.patch'):
+            sig = frozenset(changes(data).items())
+            if sig and sig in sigs:
+                found[name] = sigs[sig]
+    return found
+
+
+def subject(data):
+    """A patch's Subject, unfolded and without the [PATCH] tag."""
+    m = re.search(rb'^Subject: (.*(?:\n .*)*)', data, re.M)
+    if not m:
+        return None
+    s = re.sub(r'\s+', ' ', m.group(1).decode(errors='replace'))
+    return re.sub(r'^\[[^]]*\]\s*', '', s).strip() or None
+
+
+def dedupe_config(name, text, conflicts):
+    """A Kconfig symbol both sides set after the merge: once, if they agree."""
+    seen, out = {}, []
+    for line in text.split('\n'):
+        m = re.match(r'^(CONFIG_[A-Za-z0-9_]+)=(.*)$', line)
+        if m:
+            key, value = m.groups()
+            if key in seen:
+                if seen[key] != value:
+                    conflicts.add(f'{name}: {key} is {seen[key]} on one side and {value} on the other')
+                else:
+                    print(f'  {name}: Omarchy now sets {key}={value} itself')
+                    continue
+            seen[key] = value
+        out.append(line)
+    return '\n'.join(out)
+
+
+def drop_source(text, name):
+    """The PKGBUILD without the source line naming file NAME."""
+    lines = text.split('\n')
+    for src, start, end in blocks(lines):
+        if SOURCE.match(src):
+            for k in range(start, end + 1):
+                if lines[k].strip() == name:
+                    del lines[k]
+                    return '\n'.join(lines)
+    return text
+
+
+# ---- one package -------------------------------------------------------------
+
+def recipe_files(directory, git_tracked=False):
+    directory = Path(directory)
+    if git_tracked:
+        r = run('git', 'ls-files', '-z', '.', cwd=directory)
+        names = [n for n in r.stdout.split('\0') if n]
+    else:
+        names = [str(p.relative_to(directory)) for p in directory.rglob('*') if p.is_file()]
+    return {n: (directory / n).read_bytes() for n in names
+            if n != '.omarchy-base' and not n.startswith(IGNORED)}
+
+
+def pkgrel_of(text):
+    m = re.search(r'^pkgrel=(\S+)', text, re.M)
+    return m.group(1) if m else None
+
+
+def set_pkgrel(text, rel):
+    return re.sub(r'^pkgrel=\S+', f'pkgrel={rel}', text, count=1, flags=re.M)
+
+
+def rebase(pkgbase, pkgs, ref, check):
+    print(f'==> {pkgbase}')
+    ours_dir = ROOT / 'pkgbuilds' / pkgbase
+    base_file = ours_dir / '.omarchy-base'
+    if not base_file.is_file():
+        raise SystemExit(f'{base_file} is missing: write the omarchy-pkgs commit our recipe is built on there')
+    base = base_file.read_text().strip()
+    new = run('git', '-C', pkgs, 'rev-parse', ref).stdout.strip()
+    if run('git', '-C', pkgs, 'diff', '--quiet', base, new, '--', f'pkgbuilds/{pkgbase}', check=False).returncode == 0:
+        print(f'  Omarchy has not changed it since {base[:8]}')
+        return []
+    conflicts = Conflicts()
+    with tempfile.TemporaryDirectory() as t:
+        for tag, commit in (('o', base), ('n', new)):
+            Path(t, tag).mkdir()
+            archive = subprocess.run(['git', '-C', pkgs, 'archive', '--format=tar', commit,
+                                      f'pkgbuilds/{pkgbase}'], check=True, stdout=subprocess.PIPE).stdout
+            subprocess.run(['tar', '-x', '-C', str(Path(t, tag)), '--strip-components=2'],
+                           input=archive, check=True)
+        O = recipe_files(Path(t, 'o'))
+        N = recipe_files(Path(t, 'n'))
+        U = recipe_files(ours_dir, git_tracked=True)
+        n_text = N['PKGBUILD'].decode()
+        n_sums = sums_map(Path(t, 'n'), n_text)
+        u_sums = sums_map(ours_dir, U['PKGBUILD'].decode())
+
+        result = {}
+        for name in sorted(set(O) | set(U) | set(N)):
+            if name == 'PKGBUILD':
+                continue
+            o, u, n = O.get(name), U.get(name), N.get(name)
+            if u == o:                                 # ours untouched: Omarchy's
+                if n is not None:
+                    result[name] = n
+            elif o is None:                            # we added it
+                if n is not None and n != u:
+                    conflicts.add(f'{name}: Omarchy added a different file of this name; kept Omarchy\'s')
+                    result[name] = n
+                else:
+                    result[name] = u
+            elif u is None:                            # we removed it
+                if n is not None and n != o:
+                    print(f'  {name}: we dropped it, and Omarchy changed it since; still dropped')
+            elif n is None:                            # Omarchy removed what we changed
+                conflicts.add(f'{name}: Omarchy removed it, and we had changed it; dropped')
+            elif n == o:                               # only we changed it
+                result[name] = u
+            else:
+                try:
+                    merged = merge3(o.decode(), u.decode(), n.decode(), name, conflicts)
+                    if re.match(r'(.*/)?config(\.[A-Za-z0-9_]+)?$', name):
+                        merged = dedupe_config(name, merged, conflicts)
+                    result[name] = merged.encode()
+                except UnicodeDecodeError:
+                    conflicts.add(f'{name}: binary, changed on both sides; kept Omarchy\'s')
+                    result[name] = n
+
+        # PKGBUILD: arrays by line, the rest three ways, pkgrel Omarchy's + .1.
+        o_text, o_arrays = split(O['PKGBUILD'].decode())
+        u_text, u_arrays = split(U['PKGBUILD'].decode())
+        n_body, n_arrays = split(n_text)
+        u_text = set_pkgrel(u_text, pkgrel_of(o_text))
+        body = merge3(o_text, u_text, n_body, 'PKGBUILD', conflicts)
+        arrays = dict(n_arrays)
+        for name in n_arrays:
+            if SOURCE.match(name) and name in o_arrays and name in u_arrays:
+                arrays[name] = rebase_array(name, o_arrays[name], u_arrays[name], n_arrays[name], conflicts)
+        rel = f'{pkgrel_of(n_body)}.1'
+        pkgbuild = set_pkgrel(join(body, arrays), rel)
+
+        ours_added = {k: v for k, v in result.items() if k not in O and k not in N}
+        for name, theirs in carried_by_omarchy(ours_added, N).items():
+            print(f'  {name}: Omarchy carries it as {theirs}; dropped')
+            del result[name]
+            del ours_added[name]
+            pkgbuild = drop_source(pkgbuild, name)
+        n_subjects = {subject(v): k for k, v in N.items() if k.endswith('.patch') and subject(v)}
+        same_subject = {}
+        for name, data in ours_added.items():
+            s = subject(data)
+            if name.endswith('.patch') and s in n_subjects:
+                same_subject[name] = n_subjects[s]
+                print(f'  {name}: Omarchy has another revision of it, {n_subjects[s]} '
+                      f'(--check drops ours if it no longer applies)')
+
+        stage = Path(t, 'stage')
+        stage.mkdir()
+        for name, data in result.items():
+            Path(stage, name).parent.mkdir(parents=True, exist_ok=True)
+            Path(stage, name).write_bytes(data)
+        Path(stage, 'PKGBUILD').write_text(pkgbuild)
+        pkgbuild = regenerate_sums(stage, pkgbuild, n_sums, u_sums, conflicts)
+        Path(stage, 'PKGBUILD').write_text(pkgbuild)
+
+        # Into the repository: drop what left, write the rest.
+        for name in U:
+            if name not in result and name != 'PKGBUILD':
+                (ours_dir / name).unlink()
+                print(f'  removed {name}')
+        for name in list(result) + ['PKGBUILD']:
+            data = Path(stage, name).read_bytes()
+            dest = ours_dir / name
+            if not dest.is_file() or dest.read_bytes() != data:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(data)
+                if name in U:
+                    print(f'  updated {name}')
+                else:
+                    print(f'  added {name}')
+        base_file.write_text(new + '\n')
+
+    ver = run('bash', '-c', 'source ./PKGBUILD >/dev/null 2>&1; echo "${epoch:+$epoch:}$pkgver-$pkgrel"',
+              cwd=ours_dir).stdout.strip()
+    update_readme(ours_dir, ver)
+    print(f'  now {ver}, on omarchy-pkgs {new[:8]}')
+    if check and not conflicts:
+        ours = {k for k in recipe_files(ours_dir) if k not in O}
+        verify(ours_dir, ours, same_subject, conflicts)
+    return conflicts
+
+
+def update_readme(ours_dir, ver):
+    """The version column of the top-level README's rows for this package."""
+    readme = ROOT / 'README.md'
+    info = run('makepkg', '--printsrcinfo', cwd=ours_dir).stdout
+    names = re.findall(r'^pkgname = (\S+)', info, re.M)
+    text = readme.read_text()
+    base = ver.rsplit('.', 1)[0]
+    for name in names:
+        row = re.compile(rf'^(\| `{re.escape(name)}` \| )([^|]+?)( \|.*)$', re.M)
+        m = row.search(text)
+        if not m or m.group(2) == ver:
+            continue
+        old_base = m.group(2).rsplit('.', 1)[0]
+        line = m.group(1) + ver + m.group(3).replace(f"Omarchy's `{old_base}`", f"Omarchy's `{base}`")
+        text = text[:m.start()] + line + text[m.end():]
+        print(f'  README: {name} {m.group(2)} -> {ver}')
+    readme.write_text(text)
+
+
+def verify(ours_dir, ours, same_subject, conflicts):
+    """makepkg's source check and prepare(), in a copy. A patch of ours that
+    the new tree already has (prepare() stops on it as reversed or previously
+    applied) is dropped, and prepare() runs again."""
+    env = dict(os.environ)
+    env.setdefault('SRCDEST', str(ROOT / '.cache' / 'sources'))
+    Path(env['SRCDEST']).mkdir(parents=True, exist_ok=True)
+    for _ in range(50):
+        with tempfile.TemporaryDirectory() as t:
+            copy = Path(t, 'recipe')
+            shutil.copytree(ours_dir, copy, ignore=shutil.ignore_patterns('src', 'pkg', '*.pkg.tar.*'))
+            env['BUILDDIR'] = t
+            print('  checking sources and prepare() ...')
+            r = subprocess.run(['makepkg', '--nobuild', '--nodeps', '--noconfirm'], cwd=copy, env=env,
+                               text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if r.returncode == 0:
+            print('  sources and prepare() pass')
+            return
+        applying = re.findall(r'Applying (?:\S+ )?patch (\S+?)\.\.\.', r.stdout)
+        last = applying[-1] if applying else None
+        reversed_ = 'Reversed (or previously applied) patch detected' in r.stdout
+        if last in ours and (reversed_ or last in same_subject):
+            if reversed_:
+                print(f'  {last}: the new tree already has it; dropped')
+            else:
+                print(f'  {last}: no longer applies, and Omarchy carries another revision of it, '
+                      f'{same_subject[last]}; dropped (check that revision does what ours did)')
+            text = (ours_dir / 'PKGBUILD').read_text()
+            sums = sums_map(ours_dir, text)
+            (ours_dir / last).unlink()
+            text = drop_source(text, last)
+            (ours_dir / 'PKGBUILD').write_text(text)
+            (ours_dir / 'PKGBUILD').write_text(regenerate_sums(ours_dir, text, sums, sums, conflicts))
+            continue
+        tail = '\n'.join(r.stdout.splitlines()[-15:])
+        conflicts.add(f'makepkg prepare() failed:\n{tail}')
+        return
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
+    ap.add_argument('--ref', help='omarchy-pkgs commit to rebase onto (default: origin HEAD)')
+    ap.add_argument('--check', action='store_true', help="verify sources and run prepare()")
+    ap.add_argument('pkgbase', nargs='+')
+    args = ap.parse_args()
+
+    with tempfile.TemporaryDirectory() as t:
+        pkgs = os.environ.get('OMARCHY_PKGS')
+        if pkgs:
+            run('git', '-C', pkgs, 'fetch', '-q', 'origin')
+        else:
+            pkgs = str(Path(t, 'omarchy-pkgs'))
+            run('git', 'clone', '-q', '--filter=blob:none', '--no-checkout',
+                'https://github.com/omacom/omarchy-pkgs', pkgs)
+        ref = args.ref
+        if not ref:
+            r = run('git', '-C', pkgs, 'rev-parse', '--verify', '-q', 'refs/remotes/origin/HEAD', check=False)
+            ref = 'refs/remotes/origin/HEAD' if r.returncode == 0 else 'HEAD'
+        failed = False
+        for pkgbase in args.pkgbase:
+            if not (ROOT / 'pkgbuilds' / pkgbase / 'PKGBUILD').is_file():
+                raise SystemExit(f'No such package: {pkgbase}')
+            conflicts = rebase(pkgbase, pkgs, ref, args.check)
+            if conflicts:
+                failed = True
+                print(f'  {len(conflicts)} conflict(s) to resolve by hand')
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == '__main__':
+    main()
