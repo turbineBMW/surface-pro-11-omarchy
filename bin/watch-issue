@@ -1,0 +1,47 @@
+#!/bin/bash
+# Keep one GitHub issue in step with bin/watch-omarchy's report.
+#
+#   bin/watch-issue REPORT STATUS
+#
+# STATUS is watch-omarchy's exit status. 3 (something to act on) opens the
+# issue, or comments on the open one when the findings changed: both notify
+# the repository's watchers. 0 closes an open issue. With the same findings
+# the body is only refreshed, which notifies nobody.
+#
+# Needs gh with a token that may write issues (GH_TOKEN), and GITHUB_REPOSITORY.
+set -euo pipefail
+
+report=$1 status=$2
+label=omarchy-watch
+title="Omarchy changes need attention"
+repo=${GITHUB_REPOSITORY:?}
+
+fingerprint() { grep -o 'fingerprint: [0-9a-f]*' <<<"$1" | head -1; }
+
+gh label create "$label" -R "$repo" --color FBCA04 \
+  --description "Opened by the daily watch-omarchy check" 2>/dev/null || true
+open=$(gh issue list -R "$repo" --label "$label" --state open --json number,body --jq '.[0] // empty')
+number=
+[[ -z $open ]] || number=$(jq -r .number <<<"$open")
+
+case $status in
+  3)
+    if [[ -z $number ]]; then
+      gh issue create -R "$repo" --title "$title" --label "$label" --body-file "$report"
+    elif [[ $(fingerprint "$(jq -r .body <<<"$open")") != $(fingerprint "$(<"$report")") ]]; then
+      gh issue edit "$number" -R "$repo" --body-file "$report"
+      gh issue comment "$number" -R "$repo" --body "The findings changed; the report above is current."
+    else
+      gh issue edit "$number" -R "$repo" --body-file "$report"
+    fi
+    ;;
+  0)
+    if [[ -n $number ]]; then
+      gh issue close "$number" -R "$repo" --comment "Nothing needs attention any more."
+    fi
+    ;;
+  *)
+    echo "watch-omarchy failed (exit $status)" >&2
+    exit 1
+    ;;
+esac
