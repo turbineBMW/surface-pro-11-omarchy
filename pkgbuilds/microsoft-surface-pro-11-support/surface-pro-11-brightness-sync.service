@@ -1,6 +1,6 @@
 [Unit]
 Description=Match external monitors' brightness to the Surface Pro 11's screen over DDC/CI
-ConditionFirmware=device-tree-compatible(microsoft,denali-oled)
+ConditionFirmware=device-tree-compatible(microsoft,denali)
 PartOf=graphical-session.target
 After=graphical-session.target
 

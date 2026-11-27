@@ -1,6 +1,7 @@
 [Unit]
 Description=Read the Surface Pro 11 battery's cycle count from the Surface EC
-Documentation=file:///usr/share/doc/surface-pro-11-support/README.md
+Documentation=file:///usr/share/doc/microsoft-surface-pro-11-support/README.md
+ConditionFirmware=device-tree-compatible(microsoft,denali)
 # Only where the Surface Aggregator (the EC link) is up.
 ConditionPathIsDirectory=/sys/bus/surface_aggregator/devices
 
